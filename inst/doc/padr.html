@@ -12,7 +12,7 @@
 
 <meta name="author" content="Edwn Thoen" />
 
-<meta name="date" content="2017-01-17" />
+<meta name="date" content="2017-02-08" />
 
 <title>Introduction to padr</title>
 
@@ -70,7 +70,7 @@ code > span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Inf
 
 <h1 class="title toc-ignore">Introduction to <code>padr</code></h1>
 <h4 class="author"><em>Edwn Thoen</em></h4>
-<h4 class="date"><em>2017-01-17</em></h4>
+<h4 class="date"><em>2017-02-08</em></h4>
 
 
 
@@ -181,6 +181,10 @@ account %&gt;%<span class="st"> </span>pad</code></pre></div>
 ## 4 2016-10-21 01:00:00      NA
 ## 5 2016-10-21 02:00:00      NA
 ## 6 2016-10-21 03:00:00      NA</code></pre>
+<p>Padding within groups is supported since version 0.2.0, when the <code>group</code> parameter was added to <code>pad</code>. This parameter takes one or several column names, that indicate the groups. Take the following example of the <code>emergency</code> data.</p>
+<div class="sourceCode"><pre class="sourceCode r"><code class="sourceCode r">padded_groups &lt;-<span class="st"> </span>emergency %&gt;%<span class="st"> </span><span class="kw">thicken</span>(<span class="st">'day'</span>) %&gt;%
+<span class="st">  </span><span class="kw">count</span>(time_stamp_day, title) %&gt;%<span class="st"> </span>
+<span class="st">  </span><span class="kw">pad</span>(<span class="dt">group =</span> <span class="st">'title'</span>)</code></pre></div>
 </div>
 <div id="fill-functions" class="section level3">
 <h3>fill functions</h3>

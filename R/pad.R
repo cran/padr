@@ -19,6 +19,8 @@
 #' @param by Only needs to be specified when \code{x} contains multiple
 #' variables of class \code{Date}, class \code{POSIXct} or
 #' class \code{POSIXlt}. \code{by} indicates which variable to use for padding.
+#' @param group Optional character vector that specifies the grouping
+#' variable(s). Padding will take place within the different group values.
 #' @details The interval of a datetime variable is the time unit at which the
 #' observations occur. The eight intervals in \code{padr} are from high to low
 #' \code{year}, \code{quarter}, \code{month}, \code{week}, \code{day},
@@ -49,56 +51,75 @@
 #'
 #' # padding a data.frame on group level
 #' day_var <- seq(as.Date('2016-01-01'), length.out = 12, by = 'month')
-#' x_df_grp <- data.frame(grp  = rep(LETTERS[1:3], each =4),
+#' x_df_grp <- data.frame(grp1 = rep(LETTERS[1:3], each =4),
+#'                        grp2 = letters[1:2],
 #'                        y    = runif(12, 10, 20) %>% round(0),
 #'                        date = sample(day_var, 12, TRUE)) %>%
-#'  arrange(grp, date)
+#'  arrange(grp1, grp2, date)
 #'
-#' x_df_grp %>% group_by(grp) %>% do(pad(.)) %>% ungroup %>%
-#' tidyr::fill(grp)
+#' # pad by one grouping var
+#' x_df_grp %>% pad(group = 'grp1')
+#'
+#' # pad by two groups vars
+#' x_df_grp %>% pad(group = c('grp1', 'grp2'))
+
 #' @export
 pad <- function(x,
-                interval = NULL,
-                start_val= NULL,
-                end_val  = NULL,
-                by       = NULL){
+                interval  = NULL,
+                start_val = NULL,
+                end_val   = NULL,
+                by        = NULL,
+                group     = NULL){
+
+  if (is.null(group)) {
+    pad_single(x,
+               interval  = interval,
+               start_val = start_val,
+               end_val   = end_val,
+               by        = by,
+               group     = NULL)
+  } else {
+    pad_multiple(x,
+                 interval  = interval,
+                 start_val = start_val,
+                 end_val   = end_val,
+                 by        = by,
+                 group     = group)
+  }
+}
+
+# Function is almost equal to the previous function of pad, however it does
+# padding with grouping vars. If group is NULL nothing changes to v 0.1.0.
+
+# Note that the group here is different from the main pad. In the main function
+# it is the character vector indicating which variable(s) to use for grouping.
+# Here it is a single instance of the grouping variables, in a data frame.
+# pad_single should be applied to each of the unique keys.
+pad_single  <- function(x,
+                        interval  = NULL,
+                        start_val = NULL,
+                        end_val   = NULL,
+                        by        = NULL,
+                        group     = NULL){
 
   if (!is.data.frame(x)) {
     stop('x should be a data frame.')
   }
 
+  int_hierarchy <- get_int_hierarchy()
+
   arguments <- as.list(match.call())
-  if (!missing(by)) by_val <- as.character(arguments$by)
+  if (!is.null(by)) by_val <- as.character(arguments$by)
 
   original_data_frame <- x
   x <- as.data.frame(x)
 
-  if ('by' %in% names(arguments)){
+  if (!is.null(by)){
     dt_var <- check_data_frame(x, by = by_val)
     dt_var_name <- by_val
   } else {
     dt_var <- check_data_frame(x)
     dt_var_name <- get_date_variables(x)
-  }
-
-  if (!all(dt_var[1:(length(dt_var) - 1)] <= dt_var[2:length(dt_var)])) {
-    dt_var <- sort(dt_var)
-    warning('Datetime variable was unsorted, pad result is sorted.')
-  }
-
-  int_hierarchy <- 1:8
-  names(int_hierarchy) <- c('year', 'quarter', 'month', 'week', 'day', 'hour', 'min', 'sec')
-
-  if (is.null(interval)) {
-    interval <- get_interval(dt_var)
-  } else {
-
-    interval_dt_var <- get_interval(dt_var)
-
-    if (int_hierarchy[interval_dt_var] > int_hierarchy[interval]) {
-      stop('The interval of the datetime variable is higher than the interval given,
-            if you wish to pad at this interval you should thicken and aggregate first.')
-    }
   }
 
   # When start_val or end_val are of a different time zone, coerce to tz of dt_var
@@ -108,12 +129,6 @@ pad <- function(x,
 
   if (inherits(end_val, 'POSIXt') & inherits(dt_var, 'POSIXt')) {
     start_val <- enforce_time_zone(end_val, dt_var)
-  }
-
-  # if we want to pad a lower level than the dt_interval, we need to make it
-  # a posix first to do proper padding
-  if (inherits(dt_var, 'Date') & int_hierarchy[interval] > 5) {
-     dt_var <- as.POSIXct(as.character(dt_var))
   }
 
   if (! is.null(start_val )) {
@@ -126,24 +141,100 @@ pad <- function(x,
     end_val <- to_posix(dt_var, end_val)$b
   }
 
+
+  # If we have just one value specified it depends on start_val / end_val what to do
+  if (length(unique(dt_var)) == 1 ) {
+
+    if (is.null(start_val) && is.null(end_val) ) {
+      warning ('datetime variable contains one value only and start_val and end_val are not specified,\n  returning x without padding') #nolint
+      return(x)
+    }
+
+  } else {
+
+    if ( !all(dt_var[1:(length(dt_var) - 1)] <= dt_var[2:length(dt_var)] ) ) {
+      dt_var <- sort(dt_var)
+      warning('Datetime variable was unsorted, pad result is sorted.')
+    }
+
+  }
+
+  interval <- check_interval(dt_var, start_val, end_val, interval)
+
+  # if we want to pad a lower level than the dt_interval, we need to make it
+  # a posix first to do proper padding
+  if (inherits(dt_var, 'Date') & int_hierarchy[interval] > 5) {
+    dt_var <- as.POSIXct(as.character(dt_var))
+  }
+
   # Because dt_var might be changed we need to adjust it in the df to join later
   pos <- which(colnames(original_data_frame) == dt_var_name)
   original_data_frame[, pos] <- dt_var
-
-  check_start_end(dt_var, start_val, end_val, interval)
 
   spanned <- span_pad(dt_var, start_val, end_val, interval)
 
   join_frame <- data.frame(spanned = spanned)
 
+  cols_to_join_on <- 'spanned'
+
+  # we simply add the keys before joining
+  if (!is.null(group)) {
+    stopifnot(is.data.frame(group))
+    # cbind gives a warning when row names are unequal with base df's
+    join_frame <- suppressWarnings( cbind(join_frame,
+                                          as.data.frame(group)) )
+    cols_to_join_on <- c(cols_to_join_on, colnames(group))
+  }
+
   colnames(original_data_frame)[colnames(original_data_frame) ==
                                 dt_var_name] <- 'spanned'
-  return_frame  <- merge(join_frame, original_data_frame, by = 'spanned',
+
+
+  return_frame  <- merge(join_frame, original_data_frame, by = cols_to_join_on,
                          all.x = TRUE)
   colnames(return_frame)[colnames(return_frame) == 'spanned'] <- dt_var_name
 
   return_frame <- set_to_original_type(return_frame, original_data_frame)
   return(return_frame)
+}
+
+# This is the wrapper around pad_single, it will apply it on each of the
+# groups using dplyr.
+pad_multiple <- function(x,
+                         interval  = NULL,
+                         start_val = NULL,
+                         end_val   = NULL,
+                         by        = NULL,
+                         group     = group){
+  stopifnot(is.data.frame(x))
+  if (!all(group %in% colnames(x))) {
+    stop('Not all grouping variables are column names of x.')
+  }
+
+  groupings <- unique(x[, colnames(x) %in% group, drop = FALSE])
+  padded_groups <- vector("list", nrow(groupings))
+
+  for (i in 1:nrow(groupings)){
+
+    indic_mat <- matrix(0, nrow(x), ncol(groupings))
+    for (j in 1:ncol(groupings)){
+      indic_mat[, j] <-
+        unlist(x[, colnames(x) == group[j]]) == unlist(groupings[i, j])
+    }
+
+    x_iter <- x[rowSums(indic_mat) == ncol(groupings), ]
+
+    # because we span a data frame with the grouping vars included, we want to
+    # remove them from the data frame going into padr
+
+    padded_groups[[i]] <- pad_single(x_iter,
+                                     interval  = interval,
+                                     start_val = start_val,
+                                     end_val   = end_val,
+                                     by        = by,
+                                     group     = groupings[i, , drop = FALSE]) #nolint
+  }
+  do.call("rbind", padded_groups)
 }
 
 # when spanning for pad we want to allow for an end_val that is (far) after
@@ -166,15 +257,38 @@ span_pad <- function(
   return(span)
 }
 
-# Throw an error when start_val and / or end_val are not in sync with the interval
-check_start_end <- function(dt_var, start_val, end_val, interval){
-  int_hierarchy <- 1:8
-  names(int_hierarchy) <- c('year', 'quarter', 'month', 'week', 'day', 'hour', 'min', 'sec')
-  all_elements <- list(start_val, dt_var, end_val)
-  all_non_null <- all_elements[sapply(all_elements, function(x) !is.null(x))]
-  all_non_null <- do.call('c', all_non_null)
-  necesarry_interval <- get_interval(all_non_null)
-  if (int_hierarchy[necesarry_interval] > int_hierarchy[interval]) {
-    stop ('start_val and/or end_val are invalid for the given combination of interval and the datetime variable') # nolint
+# This is a generic function that:
+# a) checks if the given interval is valid, if the interval is given.
+# b) returns the required interval for padding.
+check_interval <- function(dt_var,
+                           start_val,
+                           end_val,
+                           interval){
+  int_hierarchy <- get_int_hierarchy()
+  all_elements <- rbind(data.frame(total_pad = start_val),
+                        data.frame(total_pad = dt_var),
+                        data.frame(total_pad = end_val))
+  necesarry_interval <- get_interval(all_elements$total_pad)
+
+  if (!is.null(interval)) {
+    if (int_hierarchy[necesarry_interval] > int_hierarchy[interval]) {
+      stop (
+'The interval of the datetime variable  is higher than the desired interval,
+possibly in combination with the start_val and / or end _val.
+Pad only works with intervals that are equal or lower.
+If you wish to pad at this interval you should thicken and aggregate first.')
+    }
+    necesarry_interval <- interval
   }
+  return(necesarry_interval)
+}
+
+
+
+# small helper to make an int_hierarchy
+get_int_hierarchy <- function(x) {
+  int_hierarchy <- 1:8
+  names(int_hierarchy) <- c('year', 'quarter', 'month', 'week', 'day', 'hour',
+                            'min', 'sec')
+  return(int_hierarchy)
 }

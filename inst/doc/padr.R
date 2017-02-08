@@ -44,6 +44,11 @@ account %>% pad %>% tidyr::fill(balance)
 ## ------------------------------------------------------------------------
 account %>% pad('hour', start_val = as.POSIXct('2016-10-20 22:00:00')) %>% head
 
+## ---- warning=FALSE------------------------------------------------------
+padded_groups <- emergency %>% thicken('day') %>%
+  count(time_stamp_day, title) %>% 
+  pad(group = 'title')
+
 ## ------------------------------------------------------------------------
 counts <- data.frame(x = as.Date(c('2016-11-21', '2016-11-23',  '2016-11-24')),
                      y = c(2, 4, 4))
