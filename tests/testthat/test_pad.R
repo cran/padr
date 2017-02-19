@@ -86,6 +86,30 @@ test_that("pad_multiple pads correctly with two group vars", {
   expect_equal( pad_multiple(x, group = c('g1', 'g2'), end_val = mnths[5])$m, rep(mnths[2:5], 4) )
 })
 
+test_that("the by arguments works, both in pad and pad_single", {
+  one_var <- data.frame(x_year = x_year, val = 1)
+  two_var <- one_var; two_var$x_year2 <- two_var$x_year
+  one_var_grps <- rbind(one_var, one_var)
+  one_var_grps$grp <- rep(letters[1:2], each = 2)
+  two_var_grps <- rbind(two_var, two_var)
+  two_var_grps$grp <- rep(letters[1:2], each = 2)
+  check_val <- seq( ymd(20150101), length.out = 4, by = 'year')
+
+  expect_equal( pad(one_var, by = "x_year")$x_year, check_val)
+  expect_equal( pad_single(one_var, by = "x_year")$x_year, check_val)
+  expect_equal( pad(one_var_grps, by = "x_year", group = 'grp')$x_year,
+                rep(check_val, 2) )
+  expect_equal( pad_multiple(one_var_grps, by = "x_year", group = 'grp')$x_year,
+                rep(check_val, 2) )
+
+  expect_equal( pad(two_var, by = "x_year")$x_year, check_val)
+  expect_equal( pad_single(two_var, by = "x_year")$x_year, check_val)
+  expect_equal( pad(two_var_grps, by = "x_year", group = 'grp')$x_year,
+                rep(check_val, 2) )
+  expect_equal( pad_multiple(two_var_grps, by = "x_year", group = 'grp')$x_year,
+                rep(check_val, 2) )
+})
+
 
 context("pad integration tests")
 test_that("Pad gives correct results", {
