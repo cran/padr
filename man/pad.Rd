@@ -5,15 +5,18 @@
 \title{Pad the datetime column of a data frame.}
 \usage{
 pad(x, interval = NULL, start_val = NULL, end_val = NULL, by = NULL,
-  group = NULL)
+  group = NULL, break_above = 1)
 }
 \arguments{
 \item{x}{A data frame containing at least one variable of class \code{Date},
 class \code{POSIXct} or class \code{POSIXlt}.}
 
-\item{interval}{The interval of the returned datetime variable. When NULL the
+\item{interval}{The interval of the returned datetime variable.
+Any character string that would be accepted by \code{seq.Date()} or
+\code{seq.POSIXt}. When NULL the
 the interval will be equal to the interval of the datetime variable. When
-specified it can only be lower than the interval of the input data. See Details.}
+specified it can only be lower than the interval and step size of the input data.
+See Details.}
 
 \item{start_val}{An object of class \code{Date}, class \code{POSIXct} or
 class \code{POSIXlt} that specifies the start of the returned datetime variable.
@@ -28,25 +31,39 @@ variables of class \code{Date}, class \code{POSIXct} or
 class \code{POSIXlt}. \code{by} indicates which variable to use for padding.}
 
 \item{group}{Optional character vector that specifies the grouping
-variable(s). Padding will take place within the different group values.}
+variable(s). Padding will take place within the different group values. When
+interval is not specified, it will be determined applying `get_interval` on
+the datetime variable as a whole, ignoring groups (see final example).}
+
+\item{break_above}{Numeric value that indicates the number of rows in millions
+above which the function will break. Safety net for situations where the
+interval is different than expected and padding yields a very large
+dataframe, possibly overflowing memory.}
 }
 \value{
-The data frame \code{x} with the datetime variable padded. All other variables
-in the data frame will have missing values at the rows that are padded.
+The data frame \code{x} with the datetime variable padded. All
+non-grouping variables in the data frame will have missing values at the rows
+that are padded. The result will always be sorted on the datetime variable.
+If `group` is not `NULL` result is sorted on keys first, then on datetime
+variable.
 }
 \description{
 \code{pad} will fill the gaps in incomplete datetime variables, by figuring out
 what the interval of the data is and what instances are missing. It will insert
 a record for each of the missing time points. For all
-other variables in the data frame a missing value will be insterted at the padded rows.
+other variables in the data frame a missing value will be inserted at the padded rows.
 }
 \details{
 The interval of a datetime variable is the time unit at which the
 observations occur. The eight intervals in \code{padr} are from high to low
 \code{year}, \code{quarter}, \code{month}, \code{week}, \code{day},
-\code{hour}, \code{min}, and \code{sec}. \code{pad} will figure out
-the interval of the input variable and will fill the gaps for the instances that
-would be expected from the interval, but are missing in the input data.
+\code{hour}, \code{min}, and \code{sec}. Since \code{padr} v.0.3.0 the
+interval is no longer limited to be of a single unit.
+(Intervals like 5 minutes, 6 hours, 10 days are possible). \code{pad} will figure out
+the interval of the input variable and the step size, and will fill the gaps for the instances that
+would be expected from the interval and step size, but are missing in the input data.
+Note that when `start_val` and/or `end_val` are specified, they are concatenated
+with the datetime variable before the interval is determined.
 See \code{vignette("padr")} for more information on \code{pad}.
 See \code{vignette("padr_implementation")} for detailed information on
 daylight savings time, different timezones, and the implementation of
@@ -56,6 +73,7 @@ daylight savings time, different timezones, and the implementation of
 simple_df <- data.frame(day = as.Date(c('2016-04-01', '2016-04-03')),
                         some_value = c(3,4))
 pad(simple_df)
+pad(simple_df, interval = "day")
 
 library(dplyr) # for the pipe operator
 month <- seq(as.Date('2016-04-01'), as.Date('2017-04-01'),
@@ -80,5 +98,14 @@ x_df_grp <- data.frame(grp1 = rep(LETTERS[1:3], each =4),
 x_df_grp \%>\% pad(group = 'grp1')
 
 # pad by two groups vars
-x_df_grp \%>\% pad(group = c('grp1', 'grp2'))
+x_df_grp \%>\% pad(group = c('grp1', 'grp2'), interval = "month")
+
+# Using group argument the interval is determined over all the observations,
+# ignoring the groups.
+x <- data.frame(dt_var = as.Date(c("2017-01-01", "2017-03-01", "2017-05-01",
+"2017-01-01", "2017-02-01", "2017-04-01")),
+id = rep(1:2, each = 3), val = round(rnorm(6)))
+pad(x, group = "id")
+# applying pad with do, interval is determined individualle for each group
+x \%>\% group_by(id) \%>\% do(pad(.))
 }

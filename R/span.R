@@ -1,20 +1,11 @@
 
 span <- function(x,
-                 interval = c('year',
-                              'quarter',
-                              'month',
-                              'week',
-                              'day',
-                              'hour',
-                              'min',
-                              'sec'),
+                 interval,
                  start_val  = NULL) {
 
   if ( !( inherits(x, 'Date') |  inherits(x, 'POSIXt') ) ){
-    break ('x should be of class Date, POSIXlt, or POSIXct')
+    break ('x should be of class Date, POSIXlt, or POSIXct', call. = FALSE)
   }
-
-  interval <- match.arg(interval)
 
   start_and_end <- get_start_and_end(x, return_interval = interval)
 
@@ -26,26 +17,26 @@ span <- function(x,
   } else if ( !is.null(start_val) ){
 
     end_val <- shift_end_from_start(start_and_end, start_val)
-    end_val <- assure_greater_than_max_x(max(x), end_val, interval)
+    end_val <- assure_greater_than_max_x(max(x), end_val, interval$interval)
 
   }
 
-  return_values <- seq(start_val, end_val, by = interval)
+  by_val <- paste(interval$step, interval$interval)
+  return_values <- seq(start_val, end_val, by = by_val)
 
-  return_values
+  return(return_values)
 }
 
-# to_val is the end_val as obtained from the get_start_and_end function
 shift_end_from_start <- function(start_and_end, start_val){
 
   start_when_null <- start_and_end$start_val
   end_when_null   <- start_and_end$end_val
 
-    if ( inherits(start_val, 'POSIXt') & inherits(start_when_null, 'Date') ) {
+  if ( inherits(start_val, 'POSIXt') & inherits(start_when_null, 'Date') ) {
     start_when_null <- as.POSIXct( as.character(start_when_null),
                                    tz = attr(start_val, 'tzone'))
     end_when_null <- as.POSIXct( as.character(end_when_null),
-                                   tz = attr(start_val, 'tzone'))
+                                 tz = attr(start_val, 'tzone'))
   }
   start_offset <- start_when_null - start_val
 
@@ -59,6 +50,8 @@ assure_greater_than_max_x <- function(max_x,
                                       interval) {
   if ( inherits(end_val, 'POSIXt') & inherits(max_x, 'Date') ) {
     max_x <- as.POSIXct( as.character(max_x), tz = attr(end_val, 'tzone'))
+  } else if ( inherits(max_x, 'POSIXt') & inherits(end_val, 'Date') ) {
+    max_x <- as.Date( substr(max_x, 1, 10) )
   }
 
   while (end_val <= max_x) {
@@ -70,67 +63,26 @@ assure_greater_than_max_x <- function(max_x,
 }
 
 #----------------------------------------------------------------------------#
-# get_start_and_end with all units
 get_start_and_end <- function(dt_var,
                               return_interval) {
-
-  # calculate min and max on ct for performance, convert those to lt
-  min_v <- as.POSIXlt( min(dt_var) )
+  min_v <- as.POSIXlt( min(dt_var) ) #nolint
   max_v <- as.POSIXlt( max(dt_var) )
 
-  if (return_interval == 'year') {
+  interval <- flatten_interval(return_interval)
 
-    start_val <- sec_to_0 ( min_to_0 ( hour_to_0 ( day_to_1 ( month_to_1 ( min_v ) ) ) ) )
-
-    end_val <- sec_to_0 ( min_to_0 ( hour_to_0 (
-      day_to_1 ( month_to_1 ( next_year ( max_v ) ) )
-    ) ) )
-
-  } else if (return_interval == 'quarter') {
-
-    start_val <- sec_to_0 ( min_to_0 ( hour_to_0 ( day_to_1 ( this_quarter_month ( min_v ) ) ) ) )
-
-    end_val <- sec_to_0 ( min_to_0 ( hour_to_0 ( day_to_1  ( next_quarter_month ( max_v ) ) ) ) )
-
-  } else if (return_interval == 'month') {
-
-    start_val <- sec_to_0 ( min_to_0 ( hour_to_0 ( day_to_1 ( min_v ) ) ) )
-
-    end_val  <- sec_to_0 ( min_to_0 ( hour_to_0 ( day_to_1  ( next_month ( max_v ) ) ) ) )
-
-  } else if (return_interval == 'week') {
-
-    start_val <- sec_to_0 ( min_to_0 ( hour_to_0 ( this_week ( min_v ) ) ) )
-
-    end_val <- sec_to_0 ( min_to_0 ( hour_to_0 ( next_week ( max_v ) ) ) )
-
-  } else if (return_interval == 'day') {
-
-    start_val <- sec_to_0 ( min_to_0 ( hour_to_0 ( min_v ) ) )
-
-    end_val <- sec_to_0 ( min_to_0 ( hour_to_0 ( next_day ( max_v ) ) ) )
-
-  } else if (return_interval == 'hour') {
-
-    start_val <- sec_to_0 ( min_to_0 ( min_v ) )
-
-    end_val <- sec_to_0 ( min_to_0 ( next_hour ( max_v ) ) )
-
-  } else if (return_interval == 'min') {
-
-    start_val <-  sec_to_0 ( min_v )
-
-    end_val <- sec_to_0 ( next_min ( max_v ) )
-
-  } else if (return_interval == 'sec') {
-
-    end_val <- next_sec ( max_v )
-  }
+  start_val_func <- sprintf("start_val_%s(min_v)", return_interval$interval)
+  start_val <- eval(parse(text = start_val_func))
+  span <- seq(start_val, max_v, by = interval)
+  end_min_1 <- span[length(span)]
+  end_val <- as.POSIXlt(seq(end_min_1, length.out = 2, by = interval)[2])
 
   to_date <- all( c(start_val$hour, start_val$min, start_val$sec,
                     end_val$hour, end_val$min, end_val$sec) == 0 )
 
-  if (to_date) {
+  interval_allows_for_date <- !return_interval$inter %in%
+    c("hour", "min", "sec")
+
+  if (to_date & interval_allows_for_date) {
     start_val <- as.Date(strptime(start_val, format = '%Y-%m-%d'))
     end_val   <- as.Date(strptime(end_val, format = '%Y-%m-%d'))
   } else {
@@ -139,8 +91,40 @@ get_start_and_end <- function(dt_var,
   }
 
   return(list(start_val = start_val, end_val = end_val))
-
 }
+
+start_val_year <- function(min_v) {
+  sec_to_0 ( min_to_0 ( hour_to_0 ( day_to_1 ( month_to_1 ( min_v ) ) ) ) )
+}
+
+start_val_quarter <- function(min_v) {
+  sec_to_0 ( min_to_0 ( hour_to_0 ( day_to_1 ( this_quarter_month ( min_v ) ) ) ) )
+}
+
+start_val_month  <- function(min_v) {
+  sec_to_0 ( min_to_0 ( hour_to_0 ( day_to_1 ( min_v ) ) ) )
+}
+
+start_val_week <- function(min_v) {
+  sec_to_0 ( min_to_0 ( hour_to_0 ( this_week ( min_v ) ) ) )
+}
+
+start_val_day <- function(min_v) {
+  sec_to_0 ( min_to_0 ( hour_to_0 ( min_v ) ) )
+}
+
+start_val_hour <- function(min_v) {
+  sec_to_0 ( min_to_0 ( hour_to_0 ( min_v ) ) )
+}
+
+start_val_min <- function(min_v) {
+  sec_to_0 ( min_to_0 ( min_v ) )
+}
+
+start_val_sec <- function(min_v) {
+  sec_to_0 ( min_v )
+}
+
 
 # this set of functions take a POSIXlt and alter time units as named
 next_year <- function(x) {

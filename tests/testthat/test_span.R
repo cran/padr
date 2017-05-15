@@ -6,6 +6,10 @@ posix_ct <- as.POSIXct(c("2016-01-01 21:19:53", "2016-02-29 10:16:11"))
 posix_lt <- as.POSIXlt(c("2016-01-01 21:19:53", "2016-02-29 10:16:11"))
 one_posix <- as.POSIXlt("2016-02-17 21:19:53")
 
+generate_interval <- function(unit, int) {
+  list(interval = int, step = unit)
+}
+
 context("span fails on wrong input")
 
 test_that("span fails on non-datetime vectors", {
@@ -20,9 +24,9 @@ test_that("span fails on data.frames", {
 })
 
 test_that("span does not fail on Date, POSIXct and POSIXlt", {
-  expect_error(day_vec %>% span, NA)
-  expect_error(posix_ct %>% span, NA)
-  expect_error(posix_lt %>% span, NA)
+  expect_error(day_vec %>% span(generate_interval(1, "day")), NA)
+  expect_error(posix_ct %>% span(generate_interval(1, "sec")), NA)
+  expect_error(posix_lt %>% span(generate_interval(1, "sec")), NA)
 })
 
 
@@ -60,8 +64,8 @@ test_that("week functions give correct output", {
 context("end_val when start_val is specified")
 
 test_that("shift_end_from_start gives correct output", {
-  gsae_year <- get_start_and_end(posix_ct, "year")
-  gsae_week <- get_start_and_end(posix_ct, "week")
+  gsae_year <- get_start_and_end(posix_ct, convert_interval("year"))
+  gsae_week <- get_start_and_end(posix_ct, convert_interval("week"))
   expect_equal(shift_end_from_start(gsae_year, as.Date("2016-02-01")),
                as.Date("2017-02-01"))
   expect_equal(shift_end_from_start(gsae_year, as.POSIXct("2016-02-01 00:04:01")), #nolint

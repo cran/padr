@@ -23,14 +23,12 @@ fill_by_value <- function(x,
                           ...,
                           value = 0) {
 
-  if (!is.data.frame(x)) {
-    stop('x should be a data frame')
-  }
+  is_df(x)
 
   fun_args <- as.list(match.call())
   if ('value' %in% names(fun_args)) value <- fun_args$value
 
-  inds <- get_the_inds(colnames(x), fun_args)
+  inds <- get_the_inds(colnames(x), fun_args, x)
 
   for (i in inds) {
     val <- x[, i]
@@ -62,14 +60,12 @@ fill_by_function <- function(x,
                              ...,
                              fun = mean) {
   if (! is.function(fun) ) {
-    stop('fun is not a valid function')
+    stop('fun is not a valid function', call. = FALSE)
   }
 
-  if (!is.data.frame(x)) {
-    stop('x should be a data frame')
-  }
+  is_df(x)
 
-  inds <- get_the_inds(colnames(x), as.list(match.call()))
+  inds <- get_the_inds(colnames(x), as.list(match.call()), x)
 
   for (i in inds) {
       val <- unlist( x[, i] )
@@ -77,7 +73,8 @@ fill_by_function <- function(x,
       value <- fun(val_no_na)
 
      if (length(value) > 1){
-       warning('fun does return multiple values, only the first is used')
+       warning('fun does return multiple values, only the first is used',
+               call. = FALSE)
        value <- value[1]
      }
 
@@ -87,7 +84,7 @@ fill_by_function <- function(x,
    return(x)
 }
 
-#' Fill missing values by the most prevalent nonnmissing value.
+#' Fill missing values by the most prevalent nonmissing value.
 #'
 #' For each specified column in \code{x} replace the missing values by the most
 #' prevalent nonmissing value.
@@ -106,11 +103,9 @@ fill_by_function <- function(x,
 fill_by_prevalent <- function(x,
                               ...) {
 
-  if (!is.data.frame(x)) {
-    stop('x should be a data frame')
-  }
+  is_df(x)
 
-  inds <- get_the_inds(colnames(x), as.list(match.call()))
+  inds <- get_the_inds(colnames(x), as.list(match.call()), x)
 
   for (i in inds) {
     val <- unlist ( x[, i] )
@@ -119,7 +114,9 @@ fill_by_prevalent <- function(x,
 
     if ( sum(x_count == max(x_count)) > 1 ) {
        tied <- paste(names( which (x_count == max(x_count) ) ), collapse = ', ')
-       stop(paste( tied, 'tie for most prevalent, please select a value and use fill_by_value') )
+       stop(paste( tied,
+                   'tie for most prevalent, please select a value and use fill_by_value', #nolint
+                   call. = FALSE) )
     }
 
   value <- names( which( x_count == max(x_count) ) )
@@ -133,12 +130,14 @@ fill_by_prevalent <- function(x,
 # Get the indicators of the variables on which the function should be applied
 # arguments are the colnames of x and the arguments of the original functiont
 get_the_inds <- function(colnames_x,
-                         args_of_function) {
+                         args_of_function,
+                         x) {
 
   arguments <- args_of_function[-c(1:2)]
+  arguments <- arguments[names(arguments) == '']
 
   if (length(arguments) == 0) {
-    stop("There are no variables specified to fill", call. = FALSE)
+    return(all_containing_nas(x))
   }
 
   cols <- arguments[ names(arguments) == '' ]
@@ -149,4 +148,8 @@ get_the_inds <- function(colnames_x,
     inds[i] <- which( colnames_x == as.character( cols[[i]] ) )
   }
   return(inds)
+}
+
+all_containing_nas <- function(x) {
+  which(colSums(is.na(x)) > 0)
 }

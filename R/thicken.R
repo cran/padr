@@ -8,18 +8,19 @@
 #'
 #' @param x A data frame containing at least one datetime variable of
 #' class \code{Date}, class \code{POSIXct} or class \code{POSIXlt}.
-#' @param interval The interval of the added datetime variable, which should be higher
-#' than the interval of the input datetime variable. If \code{NULL} it will be one level
-#' higher than the interval of the input datetime variable.
+#' @param interval The interval of the added datetime variable.
+#' Any character string that would be accepted by \code{seq.Date()} or
+#' \code{seq.POSIXt}. It can only be higher than the interval and step size of
+#' the input data.
 #' @param colname The column name of the added variable. If \code{NULL} it will
 #' be the name of the original datetime variable with the interval name added to
-#' it, separeted by an underscore.
+#' it (including the unit), separated by underscores.
 #' @param rounding Should a value in the input datetime variable be mapped to
 #' the closest value that is lower (\code{down}) or that is higher (\code{up})
 #' than itself.
 #' @param by Only needs to be specified when \code{x} contains multiple
 #' variables of class \code{Date}, class \code{POSIXct} or class \code{POSIXlt}.
-#' \code{by} indicates which to use.
+#' \code{by} indicates which to use for thickening.
 #' @param start_val By default the first instance of \code{interval} that is lower
 #' than the lowest value of the input datetime variable, with all time units on
 #' default value. Specify \code{start_val} as an offset if you want the range
@@ -33,9 +34,9 @@
 #' x_hour <- seq(lubridate::ymd_hms('20160302 000000'), by = 'hour',
 #'               length.out = 200)
 #' some_df <- data.frame(x_hour = x_hour)
-#' thicken(some_df)
+#' thicken(some_df, 'week')
 #' thicken(some_df, 'month')
-#' thicken(some_df, start_val = lubridate::ymd_hms('20160301 120000'))
+#' thicken(some_df, 'day', start_val = lubridate::ymd_hms('20160301 120000'))
 #'
 #' library(dplyr)
 #' x_df <- data.frame(
@@ -52,75 +53,73 @@
 #' # instead of Sundays
 #' min_x <- x_df$x %>% min
 #' weekdays(min_x)
-#' x_df %>% thicken(start_val = min_x - 1) %>%
+#' x_df %>% thicken('week', start_val = min_x - 1) %>%
 #'   group_by(x_week) %>% summarise(y_avg = mean(y))
 #' @export
 thicken <- function(x,
-                    interval = c('level_up',
-                                 'year',
-                                 'quarter',
-                                 'month',
-                                 'week',
-                                 'day',
-                                 'hour',
-                                 'min'),
+                    interval,
                     colname  = NULL,
                     rounding = c('down',
                                  'up'),
                     by        = NULL,
                     start_val = NULL) {
 
-  if (!is.data.frame(x)) {
-    stop('x should be a data frame.')
-  }
+  is_df(x)
+  check_start_and_end(start_val, NULL)
 
-  arguments <- as.list(match.call())
-  if (!missing(by)) by_val <- as.character(arguments$by) else by_val <- NULL
-
-  # TO DO give original data frame type back
   original_data_frame <- x
   x <- as.data.frame(x)
 
-  if ('by' %in% names(arguments)){
-    dt_var <- check_data_frame(x, by = by_val)
+  if (!is.null(by)){
+    dt_var <- check_data_frame(x, by = by)
   } else {
     dt_var <- check_data_frame(x)
   }
 
-  interval <- match.arg(interval)
+  interval_converted <- convert_interval(interval)
+  interval_converted$interval <- uniform_interval_name(interval_converted$interval)
   rounding <- match.arg(rounding)
 
-  int_hierarchy <- 1:8
-  names(int_hierarchy) <- c('year', 'quarter', 'month', 'week', 'day', 'hour', 'min', 'sec')
-  dt_var_interval <- get_interval(dt_var)
+  dt_var_interval <- get_interval_list(dt_var)
 
-  if (interval == 'level_up'){
-    dt_var_interval_nr <- int_hierarchy[dt_var_interval]
-    interval <- names(int_hierarchy[dt_var_interval_nr - 1])
-  }
+  interval_higher <- convert_int_to_hours(interval_converted) >
+    convert_int_to_hours(dt_var_interval)
+  interval_equal <- convert_int_to_hours(interval_converted) ==
+    convert_int_to_hours(dt_var_interval)
 
-  if (int_hierarchy[dt_var_interval] < int_hierarchy[interval]) {
+  # here I originally put in "& lenght(dt_var) > 2" but I don't recall why
+  # removed it, but it might break in some situation now.
+  if (!interval_higher) {
     stop('The interval in the datetime variable is lower than the interval given,
-         you might be looking fo pad rather than for thicken.')
-  } else if (int_hierarchy[dt_var_interval] == int_hierarchy[interval]) {
+         you might be looking fo pad rather than for thicken.', call. = FALSE)
+  } else if (interval_equal) {
     stop('The interval in the datetime variable is equal to the interval given,
-         you might be looking for pad rather than for thicken.')
+         you might be looking for pad rather than for thicken.', call. = FALSE)
   }
 
   if (!all(dt_var[1:(length(dt_var) - 1)] <= dt_var[2:length(dt_var)])) {
-    warning('Datetime variable was unsorted, result will be unsorted as well.')
+    warning('Datetime variable was unsorted, result will be unsorted as well.', call. = FALSE)
   }
 
   if (inherits(start_val, 'POSIXt') & inherits(dt_var, 'POSIXt')) {
-      start_val <- enforce_time_zone(start_val, dt_var)
+    start_val <- enforce_time_zone(start_val, dt_var)
   }
 
-  spanned <- span(dt_var, interval, start_val)
+  ind_to_keep <- start_val_after_min_dt(start_val, dt_var)
+  x <- x[ind_to_keep, , drop = FALSE] #nolint
+  dt_var <- dt_var[ind_to_keep]
+
+  spanned <- span(dt_var, interval_converted, start_val)
 
   thickened <- round_thicken(dt_var, spanned, rounding)
 
-  x_name <- get_date_variables(x)
-  if (is.null(colname)) colname <- paste(x_name, interval, sep = '_')
+  if (is.null(by)) {
+    x_name <- get_date_variables(x)
+  } else {
+    x_name <- by
+  }
+
+  colname <- get_colname(x, x_name, colname, interval_converted)
   return_frame <- cbind(x, thickened)
   colnames(return_frame)[ncol(return_frame)] <- colname
 
@@ -131,11 +130,89 @@ thicken <- function(x,
 
 # restore to data_frame of data.table if the input data was of this type
 set_to_original_type <- function(x,
-                                  original) {
+                                 original) {
   if (inherits(original, "tbl_df")) {
     x <- dplyr::as_data_frame(x)
+    groups <- as.character(groups(original))
+    x <- dplyr::group_by_(x, .dots = groups)
   } else if (inherits(original, "data.table")) {
     x <- data.table::as.data.table(x)
   }
   return(x)
+}
+
+# take the character form of the interval and put it into list form
+# using get_interval_list, check if valid right away
+convert_interval <- function(interval) {
+  start_val <- as.POSIXct("2017-01-01 00:00:00")
+  x <- tryCatch(
+    seq(start_val, length.out = 10, by = interval),
+    error = function(e){
+      stop("interval is not valid", call. = FALSE)
+    })
+  return(make_interval_list_from_string(interval))
+}
+
+make_interval_list_from_string <- function(interval_string) {
+  interval_split <- strsplit(interval_string, " ")[[1]]
+  if (length(interval_split) == 1) {
+    return(list(interval = interval_split,
+                step     = 1))
+  } else {
+    return(list(interval = interval_split[2],
+                step     = as.numeric(interval_split[1])))
+  }
+}
+
+# in order to compare different intervals we need to set them to the same unit
+convert_int_to_hours <- function(interval_obj) {
+  # we take # month = # year / 12
+  hours_in_unit <- c(8760, 2190, 730, 168, 24, 1, 1 / 60, 1 / 3600)
+  names(hours_in_unit) <- c("year", "quarter", "month", "week", "day",
+                            "hour", "min", "sec")
+  hours_in_unit[interval_obj$interval] * interval_obj$step
+}
+
+get_colname <- function(x, x_name, colname, interval_converted) {
+  if (is.null(colname)) {
+    if (interval_converted$step == 1) {
+      colname <- paste(x_name, interval_converted$interval, sep = "_")
+    } else {
+      colname <- paste(x_name, interval_converted$step,
+                       interval_converted$interval, sep = "_")
+    }
+  }
+  return(colname)
+}
+
+uniform_interval_name <- function(interval) {
+  if (interval %in% c("y", "ye", "yea", "years")) {
+    interval <- "year"
+  } else if (interval %in% c("q", "qu", "qua", "quar", "quart", "quarte", "quarters")){
+    interval <- "quarter"
+  } else if (interval %in% c("m", "mo", "mon", "mont", "months")) {
+    interval <- "month"
+  } else if (interval %in% c("w", "we", "wee", "weeks")){
+    interval <- "week"
+  } else if (interval %in% c("d", "da", "days")) {
+    interval <- "day"
+  } else if (interval %in% c("h", "ho", "hou", "hours")) {
+    interval <- "hour"
+  } else if (interval %in% c("mi", "mins")) {
+    interval <- "min"
+  } else if (interval %in% c("s", "se", "secs")) {
+    interval <- "sec"
+  }
+  return(interval)
+}
+
+start_val_after_min_dt <- function(start_val, dt_var) {
+  if (is.null(start_val)) {
+    return(1:length(dt_var))
+  } else {
+    start_val <- to_posix(start_val, dt_var)$a
+    dt_var    <- to_posix(start_val, dt_var)$b
+    ind <- dt_var > start_val
+    return(ind)
+  }
 }

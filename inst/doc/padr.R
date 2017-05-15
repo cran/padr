@@ -19,7 +19,10 @@ coffee2$time_stamp %>% get_interval
 coffee2$time_stamp_day %>% get_interval
 
 ## ------------------------------------------------------------------------
-data.frame(day_var = as.Date(c('2016-08-12', '2016-08-29'))) %>% thicken
+to_thicken <- data.frame(day_var = as.Date(c('2016-08-12', '2016-08-13', 
+                                              '2016-08-26', '2016-08-29')))
+to_thicken %>% thicken(interval = "week")
+to_thicken %>% thicken(interval = "4 days")
 
 ## ------------------------------------------------------------------------
 head(emergency)
@@ -46,16 +49,19 @@ account %>% pad('hour', start_val = as.POSIXct('2016-10-20 22:00:00')) %>% head
 
 ## ---- warning=FALSE------------------------------------------------------
 padded_groups <- emergency %>% thicken('day') %>%
+  filter(title %in% c("Traffic: VEHICLE ACCIDENT -", 
+                      "Traffic: DISABLED VEHICLE -")) %>% 
   count(time_stamp_day, title) %>% 
   pad(group = 'title')
 
 ## ------------------------------------------------------------------------
 counts <- data.frame(x = as.Date(c('2016-11-21', '2016-11-23',  '2016-11-24')),
-                     y = c(2, 4, 4))
+                     y = c(2, 4, 4)) %>% pad
 
-counts %>% pad() %>% fill_by_value(y, value = 42)
-counts %>% pad() %>% fill_by_function(y, fun = mean)
-counts %>% pad() %>% fill_by_prevalent(y)
+counts %>% fill_by_value()
+counts %>% fill_by_value(value = 42)
+counts %>% fill_by_function(fun = mean)
+counts %>% fill_by_prevalent()
 
 ## ---- fig.width = 7------------------------------------------------------
 dehydration_day <- emergency %>% 
