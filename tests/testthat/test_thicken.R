@@ -30,7 +30,6 @@ x_sec   <- date_seq("sec")
 equal_dist <- c(as.POSIXct("2014-01-01 23:00:00"),
                 as.POSIXct("2014-01-02 01:00:00"))
 
-
 df_with_one_date  <- data.frame(dt_var1 = date_seq("month"),
                                 y = 1:6)
 df_with_one_date_sorted <- df_with_one_date %>% arrange(dt_var1)
@@ -127,4 +126,22 @@ test_that("set_to_original_type returns tbl or data.table", {
   expect_equal(sw(data.table::as.data.table(df_with_one_date) %>% thicken("2 mon") %>%
                     class),
                c("data.table", "data.frame"))
+})
+
+
+context("thicken with missing values")
+
+test_that("thicken works properly on NA values", {
+  coffee_na <- coffee %>% thicken("day", "d") %>% count(d) %>% pad %>%
+    fill_by_value()
+  coffee_na[3, 1] <- NA
+  coffee_na_thickened <- sw(coffee_na %>% thicken("week"))
+  expect_error(sw(coffee_na %>% thicken("week")), NA)
+  expect_warning(coffee_na %>% thicken("week"),
+                 "There are NA values in the column d.
+Returned dataframe contains original observations, with NA values for d and d_week.")
+  expect_equal(coffee_na_thickened %>% nrow, 4)
+  expect_equal(coffee_na_thickened %>% filter(is.na(d)) %>% nrow, 1)
+  expect_equal(coffee_na_thickened %>% filter(is.na(d_week)) %>% nrow, 1)
+  expect_equal(coffee_na_thickened$d[3] %>% as.character(), NA_character_)
 })

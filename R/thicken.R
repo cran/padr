@@ -1,15 +1,15 @@
-#' Add a variable of a higher interval to a data frame.
+#' Add a variable of a higher interval to a data frame
 #'
-#' \code{thicken} will take the datetime variable in a data frame and map this
+#' Take the datetime variable in a data frame and map this
 #' to a variable of a higher interval. The mapping is added to the data frame
 #' in a new variable. After applying \code{thicken} the user can aggregate the
 #' other variables in the data frame to the higher interval, for instance using
 #' \code{dplyr}.
 #'
 #' @param x A data frame containing at least one datetime variable of
-#' class \code{Date}, class \code{POSIXct} or class \code{POSIXlt}.
+#' class \code{Date}, \code{POSIXct} or \code{POSIXlt}.
 #' @param interval The interval of the added datetime variable.
-#' Any character string that would be accepted by \code{seq.Date()} or
+#' Any character string that would be accepted by \code{seq.Date} or
 #' \code{seq.POSIXt}. It can only be higher than the interval and step size of
 #' the input data.
 #' @param colname The column name of the added variable. If \code{NULL} it will
@@ -19,14 +19,18 @@
 #' the closest value that is lower (\code{down}) or that is higher (\code{up})
 #' than itself.
 #' @param by Only needs to be specified when \code{x} contains multiple
-#' variables of class \code{Date}, class \code{POSIXct} or class \code{POSIXlt}.
-#' \code{by} indicates which to use for thickening.
+#' variables of class \code{Date}, \code{POSIXct} or \code{POSIXlt}.
+#' Indicates which to use for thickening.
 #' @param start_val By default the first instance of \code{interval} that is lower
 #' than the lowest value of the input datetime variable, with all time units on
 #' default value. Specify \code{start_val} as an offset if you want the range
 #' to be nonstandard.
 #' @return The data frame \code{x} with the variable added to it.
-#' @details See \code{vignette("padr")} for more information on \code{thicken}.
+#' @details When the datetime variable contains missing values, they are left
+#' in place in the dataframe. The added column with the new datetime variable,
+#' will have a missing values for these rows as well.
+#'
+#' See \code{vignette("padr")} for more information on \code{thicken}.
 #' See \code{vignette("padr_implementation")} for detailed information on
 #' daylight savings time, different timezones, and the implementation of
 #' \code{thicken}.
@@ -51,9 +55,8 @@
 #'
 #' # get the average per week, but you want your week to start on Mondays
 #' # instead of Sundays
-#' min_x <- x_df$x %>% min
-#' weekdays(min_x)
-#' x_df %>% thicken('week', start_val = min_x - 1) %>%
+#' x_df %>% thicken('week',
+#'                  start_val = closest_weekday(x_df$x, 2)) %>%
 #'   group_by(x_week) %>% summarise(y_avg = mean(y))
 #' @export
 thicken <- function(x,
@@ -65,40 +68,23 @@ thicken <- function(x,
                     start_val = NULL) {
 
   is_df(x)
-  check_start_and_end(start_val, NULL)
 
   original_data_frame <- x
   x <- as.data.frame(x)
 
-  if (!is.null(by)){
-    dt_var <- check_data_frame(x, by = by)
-  } else {
-    dt_var <- check_data_frame(x)
-  }
+  dt_var_info <- get_dt_var_and_name(x, by)
+  dt_var      <- dt_var_info$dt_var
+  dt_var_name <- dt_var_info$dt_var_name
+
+  check_start_and_end(start_val, NULL)
 
   interval_converted <- convert_interval(interval)
   interval_converted$interval <- uniform_interval_name(interval_converted$interval)
   rounding <- match.arg(rounding)
 
-  dt_var_interval <- get_interval_list(dt_var)
-
-  interval_higher <- convert_int_to_hours(interval_converted) >
-    convert_int_to_hours(dt_var_interval)
-  interval_equal <- convert_int_to_hours(interval_converted) ==
-    convert_int_to_hours(dt_var_interval)
-
-  # here I originally put in "& lenght(dt_var) > 2" but I don't recall why
-  # removed it, but it might break in some situation now.
-  if (!interval_higher) {
-    stop('The interval in the datetime variable is lower than the interval given,
-         you might be looking fo pad rather than for thicken.', call. = FALSE)
-  } else if (interval_equal) {
-    stop('The interval in the datetime variable is equal to the interval given,
-         you might be looking for pad rather than for thicken.', call. = FALSE)
-  }
-
-  if (!all(dt_var[1:(length(dt_var) - 1)] <= dt_var[2:length(dt_var)])) {
-    warning('Datetime variable was unsorted, result will be unsorted as well.', call. = FALSE)
+  if (check_for_sorting(dt_var)){
+    warning('Datetime variable was unsorted, result will be unsorted as well.',
+            call. = FALSE)
   }
 
   if (inherits(start_val, 'POSIXt') & inherits(dt_var, 'POSIXt')) {
@@ -109,10 +95,6 @@ thicken <- function(x,
   x <- x[ind_to_keep, , drop = FALSE] #nolint
   dt_var <- dt_var[ind_to_keep]
 
-  spanned <- span(dt_var, interval_converted, start_val)
-
-  thickened <- round_thicken(dt_var, spanned, rounding)
-
   if (is.null(by)) {
     x_name <- get_date_variables(x)
   } else {
@@ -120,12 +102,26 @@ thicken <- function(x,
   }
 
   colname <- get_colname(x, x_name, colname, interval_converted)
-  return_frame <- cbind(x, thickened)
+
+  na_ind <- which(is.na(dt_var))
+  dt_var <- check_for_NA_thicken(dt_var, dt_var_name, colname)
+
+  spanned <- span(dt_var, interval_converted, start_val)
+
+  thickened <- round_thicken(dt_var, spanned, rounding)
+
+  if (all(all.equal(thickened, dt_var) == TRUE)) {
+    stop("The thickened result is equal to the original datetime variable,
+the interval specified is too low for the interval of the datetime variable", call. = FALSE)
+  }
+
+  thickened_with_na <- add_na_to_thicken(thickened, na_ind)
+  thickened_frame   <- data.frame(thickened_with_na)
+
+  return_frame <- dplyr::bind_cols(x, thickened_frame)
   colnames(return_frame)[ncol(return_frame)] <- colname
 
-  return_frame <- set_to_original_type(return_frame, original_data_frame)
-
-  return(return_frame)
+  set_to_original_type(return_frame, original_data_frame)
 }
 
 # restore to data_frame of data.table if the input data was of this type
@@ -133,8 +129,8 @@ set_to_original_type <- function(x,
                                  original) {
   if (inherits(original, "tbl_df")) {
     x <- dplyr::as_data_frame(x)
-    groups <- as.character(groups(original))
-    x <- dplyr::group_by_(x, .dots = groups)
+    grps <- as.character(dplyr::groups(original))
+    x <- dplyr::group_by_(x, .dots = grps)
   } else if (inherits(original, "data.table")) {
     x <- data.table::as.data.table(x)
   }
@@ -215,4 +211,32 @@ start_val_after_min_dt <- function(start_val, dt_var) {
     ind <- dt_var > start_val
     return(ind)
   }
+}
+
+check_for_sorting <- function(dt_var) {
+  # filter out missing values, there will be a warning thrown for them later
+  dt_var <- dt_var[!is.na(dt_var)]
+  !all(dt_var[1:(length(dt_var) - 1)] <= dt_var[2:length(dt_var)])
+}
+
+check_for_NA_thicken <- function(dt_var, dt_var_name, colname) {
+  if (sum(is.na(dt_var))  > 0) {
+    dt_var <- dt_var[!is.na(dt_var)]
+
+      warn_mess <- sprintf(
+"There are NA values in the column %s.
+Returned dataframe contains original observations, with NA values for %s and %s.",
+        dt_var_name, dt_var_name, colname
+      )
+    warning(warn_mess, call. = FALSE)
+  }
+  dt_var
+}
+
+add_na_to_thicken <- function(thickened, na_ind) {
+  return_var <- c(thickened, rep(NA, length(na_ind)))
+  return_ind <- c(seq_along(thickened), na_ind - .5)
+  return_var_ord <- return_var[order(return_ind)]
+  attr(return_var_ord, "tzone") <- attr(thickened, "tzone")
+  return(return_var_ord)
 }

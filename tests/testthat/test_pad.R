@@ -135,19 +135,32 @@ test_that("pad pads correctly with two group vars", {
 })
 
 test_that("dplyr grouping yields correct results", {
-  mnths <- seq(ymd(20160101), length.out = 6, by = 'month')
-  x <- data.frame(m  = rep( mnths[c(2, 4, 5)], 4),
-                  g1 = letters[rep(1:2, each = 6)],
-                  g2 = letters[rep(5:8, each = 3)])
-  expect_equal(pad(x, group = "g1"),
+  mnths <- seq(ymd(20160101), length.out = 5, by = 'month')
+  x_complete <- data.frame(m  = rep( mnths, 4),
+                           g1 = letters[rep(1:2, each = 10)],
+                           g2 = letters[rep(5:8, each = 5)],
+                           y  = 1)
+  x <- x_complete[-c(3, 8, 13, 18), ]
+  x_one_group <- x_complete[-c(3, 13), ] %>%
+    arrange(g1, m)
+  x_one_group[c(5, 14), c(3, 4)] <- NA
+  x_complete[c(3, 8, 13, 18), 4] <- NA
+  expect_equal(x_one_group,
                pad(dplyr::group_by(x, g1)) %>% as.data.frame )
-  expect_equal(pad(x, group = c("g1", "g2")),
+  expect_equal(x_complete,
                pad(dplyr::group_by(x, g1, g2)) %>% as.data.frame)
   expect_warning(pad(group_by(x, g2), group = "g1"))
   expect_equal( sw(pad(group_by(x, g2), group = "g1")) %>% as.data.frame,
-                pad(x, group = "g1"))
+                x_one_group)
   expect_equal( pad(group_by(x, g1)) %>% groups %>% as.character, "g1")
+})
 
+test_that("datetime variable in the grouping throws an error", {
+  coffee$grp <- 1:2
+  expect_error(pad(coffee, group = "time_stamp"))
+  expect_error(coffee %>% group_by(time_stamp) %>% pad)
+  expect_error(pad(coffee, group = c("time_stamp", 'grp')))
+  expect_error(coffee %>% group_by(time_stamp, grp) %>% pad)
 })
 
 test_that("the by arguments works, both in pad and pad_single", {
@@ -205,4 +218,47 @@ test_that("Pad gives correct results", {
   expect_equal(pad(data.frame(x_hour, 1)) %>% nrow, 3)
   expect_equal(pad(data.frame(x_hour, 1), interval = "hour") %>% nrow, 49)
   expect_equal(suppressWarnings(pad(data.frame(x_min, 1))) %>% nrow, 60)
+})
+
+context("pad shows message about interval")
+test_that("gives message when interval is NULL", {
+  # Manually setting the ts var in coffee, so test passes on systems with
+  # a different time zone
+  coffee$time_stamp <- as.POSIXct(c(
+    "2016-07-07 09:11:21", "2016-07-07 09:46:48", "2016-07-09 13:25:17", "2016-07-10 10:45:11"
+  ))
+  x1 <- coffee %>% thicken("hour") %>% select(-time_stamp)
+  x2 <- coffee %>% thicken("6 hour") %>% select(-time_stamp)
+  expect_message(pad(x1), "pad applied on the interval: hour\n")
+  expect_message(pad(x2), "pad applied on the interval: 18 hour\n")
+})
+
+
+test_that("gives no message when interval is not NULL", {
+  x1 <- coffee %>% thicken("hour") %>% select(-time_stamp)
+  expect_message(pad(x1, interval = "hour"), NA)
+})
+
+test_that("pad works when datetime variable name is irregular", {
+ irreg <- data.frame(x = span_date(2016, 2018)[c(1, 3)], val = 1:2)
+ colnames(irreg)[1] <- 42
+ expect_error(pad(irreg, interval = "year"), NA)
+ colnames(irreg)[1] <- "test_/_hello"
+ expect_error(pad(irreg, interval = "year"), NA)
+})
+
+
+context("pad and thickens with a NA values in the datetime variable")
+test_that("pad works properly on with NA values", {
+  coffee_na <- coffee %>% thicken("day", "d") %>% count(d) %>% pad %>%
+    fill_by_value()
+  coffee_na[3, 1] <- NA
+  coffee_na_padded <- suppressWarnings(coffee_na %>% pad())
+  expect_error(suppressWarnings(coffee_na %>% pad()), NA)
+  expect_warning(coffee_na %>% pad(),
+"There are NA values in the column d. The records with NA values are returned
+in the final rows of the dataframe.")
+  expect_equal(coffee_na_padded %>% nrow(), 5)
+  expect_equal(coffee_na_padded %>% filter(is.na(d)) %>% nrow, 1)
+  expect_equal(coffee_na_padded$d[5] %>% as.character(), NA_character_)
 })

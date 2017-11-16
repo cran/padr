@@ -1,12 +1,13 @@
-#' Pad the integer column of a data frame.
+#' Pad the integer column of a data frame
 #'
-#' \code{pad} will fill the gaps in incomplete integer variables. It will insert
+#' \code{pad_int} fills the gaps in incomplete integer variables. It will insert
 #' a record for each of the missing value. For all
-#' other variables in the data frame a missing value will be inserted at the padded rows.
+#' other variables in the data frame a missing value will be inserted at the
+#' padded rows.
 #'
 #' @param x A data frame.
 #' @param by The column to be padded.
-#' @param start_val The first value of the returned variable. #' If NULL it will
+#' @param start_val The first value of the returned variable. If NULL it will
 #' use the lowest value of the input variable.
 #' @param end_val The last value of the returned variable. If NULL it will use
 #' the highest value of the input variable.
@@ -46,25 +47,22 @@ pad_int <- function(x,
     stop('Not all grouping variables are column names of x.', call. = FALSE)
   }
 
-  int_var <- x[, colnames(x) == by]
-  is_valid_int(int_var)
-
   original_data_frame <- x
   x <- as.data.frame(x)
+
+  int_var <- x[, colnames(x) == by]
+  is_valid_int(int_var)
 
   min_max_frame <- get_min_max(x, by, group, start_val, end_val)
   warning_no_padding(min_max_frame)
 
   spanned <- span_all_groups(min_max_frame, step)
 
-
   if (!is.null(step)) {
     if (!is.null(start_val)) int_var <- int_var[int_var >= start_val]
     if (!is.null(end_val)) int_var <- int_var[int_var <= end_val]
     check_interval_validity(spanned$span, int_var)
   }
-
-
 
   colnames(x)[colnames(x) == by] <- 'span'
   return_frame <- suppressMessages(
@@ -85,5 +83,5 @@ check_step <- function(min_max_frame,
 
 is_valid_int <- function(int_var) {
   stopifnot(is.numeric(int_var))
-  stopifnot( all(int_var %% 1 == 0))
+  stopifnot(all(int_var %% 1 == 0))
 }

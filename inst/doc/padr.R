@@ -10,13 +10,13 @@ coffee %>%
   group_by(time_stamp_day) %>%
   summarise(day_amount = sum(amount)) %>% 
   pad() %>% 
-  fill_by_value(day_amount) %>% 
+  fill_by_value() %>% 
   ggplot(aes(time_stamp_day, day_amount)) + geom_line()
 
 ## ------------------------------------------------------------------------
 coffee2 <- coffee %>% thicken('day')
-coffee2$time_stamp %>% get_interval
-coffee2$time_stamp_day %>% get_interval
+coffee2$time_stamp %>% get_interval()
+coffee2$time_stamp_day %>% get_interval()
 
 ## ------------------------------------------------------------------------
 to_thicken <- data.frame(day_var = as.Date(c('2016-08-12', '2016-08-13', 
@@ -34,25 +34,33 @@ emergency %>% filter(title == 'EMS: OVERDOSE') %>%
           colname = 'daystart') %>% 
   group_by(daystart) %>% 
   summarise(nr_od = n()) %>% 
-  head
+  head()
 
 ## ------------------------------------------------------------------------
 account <- data.frame(day     = as.Date(c('2016-10-21', '2016-10-23', '2016-10-26')),
                       balance = c(304.46, 414.76, 378.98))
-account %>% pad
+account %>% pad()
 
 ## ------------------------------------------------------------------------
-account %>% pad %>% tidyr::fill(balance)
+account %>% pad() %>% tidyr::fill(balance)
 
 ## ------------------------------------------------------------------------
-account %>% pad('hour', start_val = as.POSIXct('2016-10-20 22:00:00')) %>% head
+account %>% pad('hour', start_val = as.POSIXct('2016-10-20 22:00:00')) %>% head()
 
-## ---- warning=FALSE------------------------------------------------------
-padded_groups <- emergency %>% thicken('day') %>%
-  filter(title %in% c("Traffic: VEHICLE ACCIDENT -", 
-                      "Traffic: DISABLED VEHICLE -")) %>% 
-  count(time_stamp_day, title) %>% 
-  pad(group = 'title')
+## ------------------------------------------------------------------------
+grouping_df <- data.frame(
+  group = rep(c("A", "B"), c(3, 3)),
+  date  = as.Date(c("2017-10-02", "2017-10-04", "2017-10-06", "2017-10-01", 
+                    "2017-10-03", "2017-10-04")),
+  value = rep(2, 6)
+)
+grouping_df %>% 
+  pad(group = "group")
+
+## ------------------------------------------------------------------------
+grouping_df %>% 
+  group_by(group) %>% 
+  do(pad(.))
 
 ## ------------------------------------------------------------------------
 counts <- data.frame(x = as.Date(c('2016-11-21', '2016-11-23',  '2016-11-24')),
@@ -63,15 +71,23 @@ counts %>% fill_by_value(value = 42)
 counts %>% fill_by_function(fun = mean)
 counts %>% fill_by_prevalent()
 
-## ---- fig.width = 7------------------------------------------------------
-dehydration_day <- emergency %>% 
-  filter(title == 'EMS: DEHYDRATION') %>% 
-  thicken(interval = 'day') %>% 
-  group_by(time_stamp_day) %>% 
-  summarise(nr = n()) %>% 
+## ---- fig.width=7--------------------------------------------------------
+emergency %>% 
+  thicken("hour", "h") %>% 
+  count(h) %>% 
+  slice(1:24) %>% 
+  mutate(h_center = center_interval(h)) %>% 
+  ggplot(aes(h_center, n)) + geom_bar(stat = "identity")
+
+## ---- message=FALSE------------------------------------------------------
+emergency %>% 
+  filter(title == "EMS: HEAD INJURY") %>% 
+  thicken("6 hour", "hour6") %>% 
+  count(hour6) %>% 
   pad() %>% 
-  fill_by_value(nr)
-ggplot(dehydration_day, aes(time_stamp_day, nr)) +
-  geom_point() +
-  geom_smooth()
+  fill_by_value() %>% 
+  mutate(hour6_fmt = 
+           format_interval(hour6, start_format = "%Hh", sep = "-")) %>% 
+  ggplot(aes(hour6_fmt, n)) +
+  geom_boxplot()
 

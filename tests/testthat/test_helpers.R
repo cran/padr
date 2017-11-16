@@ -28,18 +28,16 @@ test_that("get_date_variable gives the correct output", {
 # enforce_time_zone
 context("Test the enforce_time_zone")
 
-
 test_that("enforce_timee zone works as expected", {
 
   a_ct <- ymd_h(c("20151201 03", "20160201 03"))
   b_ct <- ymd_hms(c("2015-01-01 00:00:00", "2016-01-01 00:00:00"))
   c_ct <- ymd_hms(c("2015-01-01 00:00:00", "2016-01-01 00:00:00"), tz = "CET")
 
-  equal     <- enforce_time_zone(a_ct, b_ct)
+  equal  <- enforce_time_zone(a_ct, b_ct)
   expect_warning({
     different <- enforce_time_zone(a_ct, c_ct)
   })
-
 
   expect_warning( enforce_time_zone(a_ct, c_ct))
   expect_equal( attr(equal, "tz"), "UTC")

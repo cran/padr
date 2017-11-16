@@ -1,4 +1,4 @@
-#' Pad the datetime column of a data frame.
+#' Pad the datetime column of a data frame
 #'
 #' \code{pad} will fill the gaps in incomplete datetime variables, by figuring out
 #' what the interval of the data is and what instances are missing. It will insert
@@ -6,26 +6,26 @@
 #' other variables in the data frame a missing value will be inserted at the padded rows.
 #'
 #' @param x A data frame containing at least one variable of class \code{Date},
-#' class \code{POSIXct} or class \code{POSIXlt}.
+#' \code{POSIXct} or \code{POSIXlt}.
 #' @param interval The interval of the returned datetime variable.
 #' Any character string that would be accepted by \code{seq.Date()} or
 #' \code{seq.POSIXt}. When NULL the
 #' the interval will be equal to the interval of the datetime variable. When
 #' specified it can only be lower than the interval and step size of the input data.
 #' See Details.
-#' @param start_val An object of class \code{Date}, class \code{POSIXct} or
-#' class \code{POSIXlt} that specifies the start of the returned datetime variable.
+#' @param start_val An object of class \code{Date}, \code{POSIXct} or
+#' \code{POSIXlt} that specifies the start of the returned datetime variable.
 #' If NULL it will use the lowest value of the input variable.
-#' @param end_val An object of class \code{Date}, class \code{POSIXct} or
-#' class \code{POSIXlt} that specifies the end of returned datetime variable.
+#' @param end_val An object of class \code{Date}, \code{POSIXct} or
+#' \code{POSIXlt} that specifies the end of returned datetime variable.
 #' If NULL it will use the highest value of the input variable.
 #' @param by Only needs to be specified when \code{x} contains multiple
-#' variables of class \code{Date}, class \code{POSIXct} or
-#' class \code{POSIXlt}. \code{by} indicates which variable to use for padding.
+#' variables of class \code{Date}, \code{POSIXct} or \code{POSIXlt}.
+#' Indicates which variable to use for padding.
 #' @param group Optional character vector that specifies the grouping
-#' variable(s). Padding will take place within the different group values. When
-#' interval is not specified, it will be determined applying `get_interval` on
-#' the datetime variable as a whole, ignoring groups (see final example).
+#' variable(s). Padding will take place within the different groups. When
+#' interval is not specified, it will be determined applying \code{get_interval}
+#' on the datetime variable as a whole, ignoring groups (see last example).
 #' @param break_above Numeric value that indicates the number of rows in millions
 #' above which the function will break. Safety net for situations where the
 #' interval is different than expected and padding yields a very large
@@ -35,20 +35,20 @@
 #' \code{year}, \code{quarter}, \code{month}, \code{week}, \code{day},
 #' \code{hour}, \code{min}, and \code{sec}. Since \code{padr} v.0.3.0 the
 #' interval is no longer limited to be of a single unit.
-#' (Intervals like 5 minutes, 6 hours, 10 days are possible). \code{pad} will figure out
-#' the interval of the input variable and the step size, and will fill the gaps for the instances that
-#' would be expected from the interval and step size, but are missing in the input data.
-#' Note that when `start_val` and/or `end_val` are specified, they are concatenated
-#' with the datetime variable before the interval is determined.
-#' See \code{vignette("padr")} for more information on \code{pad}.
-#' See \code{vignette("padr_implementation")} for detailed information on
-#' daylight savings time, different timezones, and the implementation of
-#' \code{thicken}.
+#' (Intervals like 5 minutes, 6 hours, 10 days are possible). \code{pad} will
+#' figure out the interval of the input variable and the step size, and will
+#' fill the gaps for the instances that would be expected from the interval and
+#' step size, but are missing in the input data.
+#' Note that when \code{start_val} and/or \code{end_val} are specified, they are
+#' concatenated with the datetime variable before the interval is determined.
+#'
+#' Rows with missing values in the datetime variables will be retained.
+#' However, they will be moved to the end of the returned data frame.
 #' @return The data frame \code{x} with the datetime variable padded. All
 #' non-grouping variables in the data frame will have missing values at the rows
 #' that are padded. The result will always be sorted on the datetime variable.
-#' If `group` is not `NULL` result is sorted on keys first, then on datetime
-#' variable.
+#' If \code{group} is not \code{NULL} result is sorted on grouping variable(s)
+#' first, then on the datetime variable.
 #' @examples
 #' simple_df <- data.frame(day = as.Date(c('2016-04-01', '2016-04-03')),
 #'                         some_value = c(3,4))
@@ -88,7 +88,6 @@
 #' pad(x, group = "id")
 #' # applying pad with do, interval is determined individualle for each group
 #' x %>% group_by(id) %>% do(pad(.))
-
 #' @export
 pad <- function(x,
                 interval  = NULL,
@@ -107,14 +106,21 @@ pad <- function(x,
 
   original_data_frame <- x
   x <- as.data.frame(x)
+  original_interval <- interval
 
-  if (!is.null(by)){
-    dt_var <- check_data_frame(x, by = by)
-    dt_var_name <- by
-  } else {
-    dt_var <- check_data_frame(x)
-    dt_var_name <- get_date_variables(x)
-  }
+  # we have to get the dt_var twice, first on the original data. If there are
+  # NA values in it, we have to get it again on x with NA values filtered out.
+  dt_var_info_original <- get_dt_var_and_name(x, by)
+  dt_var_name <- dt_var_info_original$dt_var_name
+  x_NA_list <- check_for_NA_pad(x, dt_var_info_original$dt_var,
+                                dt_var_name)
+  x <- x_NA_list$x
+  x_NA <- x_NA_list$x_NA
+
+  dt_var_info <- get_dt_var_and_name(x, by)
+  dt_var      <- dt_var_info$dt_var
+
+  check_dt_var_in_group(dt_var_name, group)
 
   ### Make sure start_val, end_val and dt_var are same data type ####
   if (inherits(start_val, 'POSIXt') & inherits(dt_var, 'POSIXt')) {
@@ -125,21 +131,23 @@ pad <- function(x,
     end_val <- enforce_time_zone(end_val, dt_var)
   }
 
-  if (! is.null(start_val )) {
+  if (! is.null(start_val)) {
     dt_var <- to_posix(dt_var, start_val)$a
     start_val <- to_posix(dt_var, start_val)$b
   }
 
-  if (! is.null(end_val )) {
+  if (! is.null(end_val)) {
     dt_var <- to_posix(dt_var, end_val)$a
     end_val <- to_posix(dt_var, end_val)$b
   }
 
   # get the interval over all the groups, this way it is assured all groups
-  # are the same
-  interval_dt_var <- get_interval_start_end(dt_var, start_val, end_val)
-  if (interval_dt_var[[1]] == "return x here") {
-    return(x)
+  # are the same. Only get the interval when interval is NULL
+  if (is.null(interval)) {
+    interval_dt_var <- get_interval_start_end(dt_var, start_val, end_val)
+    if (interval_dt_var[[1]] == "return x here") {
+      return(x)
+    }
   }
 
   if (!is.null(interval)) {
@@ -174,11 +182,7 @@ pad <- function(x,
   min_max_frame <- check_invalid_start_and_end(min_max_frame)
 
   return_rows <- get_return_rows(min_max_frame, interval)
-  threshold   <- break_above * 10 ^ 6
-  if (return_rows > threshold) {
-    stop(sprintf("Estimated %s returned rows, larger than %s milion in break_above",
-                  return_rows, break_above), call. = FALSE)
-  }
+  break_above_func(return_rows, break_above)
 
   warning_no_padding(min_max_frame)
 
@@ -205,36 +209,44 @@ pad <- function(x,
 
   return_frame <- set_to_original_type(return_frame, original_data_frame)
 
-  interval_message(interval)
+  if (is.null(original_interval)) {
+    interval_message(interval)
+  }
+
+  return_frame <- dplyr::bind_rows(return_frame, x_NA)
+
   return(return_frame)
 }
 
 
 get_min_max <- function(x,
-                        dt_var,
+                        dt_var_name,
                         group_vars,
                         start_val,
                         end_val) {
-  grpd <- dplyr::group_by_(x, .dots = group_vars)
+  dt_var_enq     <- rlang::sym(dt_var_name)
+  group_vars_enq <- rlang::syms(group_vars)
+  grpd           <- dplyr::group_by(x, !!!group_vars_enq)
 
-  funcs <- list(sprintf("min(%s)", dt_var),
-                sprintf("max(%s)", dt_var))
-
-  ret <- dplyr::summarise_(grpd, .dots = stats::setNames(funcs, c("mn", "mx")))
+  ret <- dplyr::summarise(grpd, mn = min(!!dt_var_enq), mx = max(!!dt_var_enq))
   if (!is.null(start_val)) ret$mn <- start_val
-  if (!is.null(end_val)) ret$mx <- end_val
+  if (!is.null(end_val))   ret$mx <- end_val
   ret <- dplyr::ungroup(ret)
   return(ret)
 }
 
-warning_no_padding <- function(x) {
-  start_equal_to_end <- x$mn == x$mx
-  if (any(start_equal_to_end)){
-    not_varying <- sum(start_equal_to_end)
-    warning(sprintf("datetime variable does not vary for %d of the groups, no padding applied on this / these group(s)", #nolint
-                    not_varying), call. = FALSE)
+warning_no_vary <- function(msg_second_part) {
+  function(x) {
+    start_equal_to_end <- x$mn == x$mx
+    if (any(start_equal_to_end)){
+      not_varying <- sum(start_equal_to_end)
+    warning(sprintf("datetime variable does not vary for %d of the groups, %s", #nolint
+                    not_varying, msg_second_part), call. = FALSE)
+    }
   }
 }
+
+warning_no_padding <- warning_no_vary("no padding applied on this / these group(s)")
 
 # if start_val or end_val are specified, we want omit the cases where the
 # start_val is larger than max(x) and end_val is smaller than min(x)
@@ -284,7 +296,7 @@ span_all_groups <- function(x, interval) {
                       id_vars = id_vars,
                       SIMPLIFY = FALSE)
 
-  return(dplyr::bind_rows(list_span))
+  dplyr::bind_rows(list_span)
 }
 
 # currently int64 gives so much trouble, I chose to just break for now.
@@ -310,8 +322,8 @@ flatten_interval <- function(int) {
 # keys first. Also the columns should be in the same order as the original
 to_original_format <- function(ret, group_vars, dt_var_name, original_data_frame){
   sorting_fields <- c(group_vars, dt_var_name)
-  ret <- dplyr::arrange_(ret, .dots = sorting_fields)
-  ret <- dplyr::select_(ret, .dots = colnames(original_data_frame))
+  ret <- dplyr::arrange(ret, !!!rlang::syms(sorting_fields))
+  ret <- dplyr::select(ret, !!!rlang::syms(colnames(original_data_frame)))
   return(as.data.frame(ret))
 }
 
@@ -377,4 +389,48 @@ get_dplyr_groups <- function(x, group) {
     }
   }
   return(dplyr_groups)
+}
+
+break_above_func <- function(n,
+                             threshold) {
+  threshold <- threshold * 10 ^ 6
+  if (n > threshold) {
+    stop(sprintf("Estimated %s returned rows, larger than %s milion in break_above",
+                 n, threshold), call. = FALSE)
+  }
+
+}
+
+get_dt_var_and_name <- function(x, by) {
+  if (!is.null(by)){
+    dt_var <- check_data_frame(x, by = by)
+    dt_var_name <- by
+  } else {
+    dt_var <- check_data_frame(x)
+    dt_var_name <- get_date_variables(x)
+  }
+  list(dt_var = dt_var, dt_var_name = dt_var_name)
+}
+
+check_for_NA_pad <- function(x, dt_var, dt_var_name) {
+  x_no_NA <- x
+  x_NA <- NULL
+  if (anyNA(dt_var)) {
+    x_no_NA <- x[!is.na(dt_var), ]
+    x_NA <- x[is.na(dt_var), ]
+    warn_mess <- sprintf(
+"There are NA values in the column %s. The records with NA values are returned
+in the final rows of the dataframe.",
+      dt_var_name
+    )
+    warning(warn_mess, call. = FALSE)
+  }
+  list(x = x_no_NA, x_NA = x_NA)
+}
+
+
+check_dt_var_in_group <- function(dt_var_name, group) {
+  if (dt_var_name %in% group) {
+    stop(sprintf("%s cannot be in de grouping variables", dt_var_name))
+  }
 }

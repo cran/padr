@@ -2,17 +2,17 @@
 % Please edit documentation in R/thicken.R
 \name{thicken}
 \alias{thicken}
-\title{Add a variable of a higher interval to a data frame.}
+\title{Add a variable of a higher interval to a data frame}
 \usage{
 thicken(x, interval, colname = NULL, rounding = c("down", "up"),
   by = NULL, start_val = NULL)
 }
 \arguments{
 \item{x}{A data frame containing at least one datetime variable of
-class \code{Date}, class \code{POSIXct} or class \code{POSIXlt}.}
+class \code{Date}, \code{POSIXct} or \code{POSIXlt}.}
 
 \item{interval}{The interval of the added datetime variable.
-Any character string that would be accepted by \code{seq.Date()} or
+Any character string that would be accepted by \code{seq.Date} or
 \code{seq.POSIXt}. It can only be higher than the interval and step size of
 the input data.}
 
@@ -25,8 +25,8 @@ the closest value that is lower (\code{down}) or that is higher (\code{up})
 than itself.}
 
 \item{by}{Only needs to be specified when \code{x} contains multiple
-variables of class \code{Date}, class \code{POSIXct} or class \code{POSIXlt}.
-\code{by} indicates which to use for thickening.}
+variables of class \code{Date}, \code{POSIXct} or \code{POSIXlt}.
+Indicates which to use for thickening.}
 
 \item{start_val}{By default the first instance of \code{interval} that is lower
 than the lowest value of the input datetime variable, with all time units on
@@ -37,13 +37,17 @@ to be nonstandard.}
 The data frame \code{x} with the variable added to it.
 }
 \description{
-\code{thicken} will take the datetime variable in a data frame and map this
+Take the datetime variable in a data frame and map this
 to a variable of a higher interval. The mapping is added to the data frame
 in a new variable. After applying \code{thicken} the user can aggregate the
 other variables in the data frame to the higher interval, for instance using
 \code{dplyr}.
 }
 \details{
+When the datetime variable contains missing values, they are left
+in place in the dataframe. The added column with the new datetime variable,
+will have a missing values for these rows as well.
+
 See \code{vignette("padr")} for more information on \code{thicken}.
 See \code{vignette("padr_implementation")} for detailed information on
 daylight savings time, different timezones, and the implementation of
@@ -70,8 +74,7 @@ x_df \%>\% thicken('month') \%>\% group_by(x_month) \%>\%
 
 # get the average per week, but you want your week to start on Mondays
 # instead of Sundays
-min_x <- x_df$x \%>\% min
-weekdays(min_x)
-x_df \%>\% thicken('week', start_val = min_x - 1) \%>\%
+x_df \%>\% thicken('week',
+                 start_val = closest_weekday(x_df$x, 2)) \%>\%
   group_by(x_week) \%>\% summarise(y_avg = mean(y))
 }

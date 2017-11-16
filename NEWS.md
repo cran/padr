@@ -1,3 +1,53 @@
+# padr 0.4.0
+
+## Improvements
+
+* `thicken` is sped up significantly:
+
+- `get_interval` no longer applied to assess interval validity (its slow on large variables because it converts a POSIX to character). Rather validity is now compared after thickening by checking if results differes frome original. Makes function approximately four times faster.
+
+* `get_interval` is sped up significantly:
+
+- to convert date to character `format` is used, instead of `as.character`. For large vectors it 4 to 5 times faster.
+
+## New Features
+
+* `span_date` and `span_time` are new functions and they are wrappers around `seq.Date` and `seq.POSIXt` respectively. Because of their default settings (minimal specification of date and datetimes and interval inference) they require very little inputs for straightforward spanning.
+
+* The `closest_weekday` function is introduced. It finds the closest requested weekday around the start of a datetime variable. This function helps to find quickly the `start_val` for `thicken` when the interval is "week".
+
+* Two new functions are introduced that help with visualising interval data. 
+
+- `center_interval` shifts the datetime variable from either the beginning or the end of the interval, to the center of the interval. This will improve visualisations such as dot plots and bar plots, where the timestamp is still considered to be continuous.
+
+- `format_interval` takes the start_value of an interval and infers the end. It uses `strftime` on both the start value and the end value, to create a character vector that reflects the full interval. 
+
+* The `_cust` suite allows for user-specified spanning to use in thickening and padding.
+
+- to create an asymmetric spanning, `subset_span` subsets a datetime vector to the desired date and time points. These are provided in a list.
+
+- `span_around` takes a datetime variable as input and spans a variable around it of a desired interval. This automates finding the min and the man of `x` manually, determining which values are needed to create a span of a desired interval, and do the actual spanning.
+
+## Bug Fixes / Enhancements
+
+* Both `pad` and `thicken` will no longer break when there are missing values in the datetime variable. Rows containing missing values will be retained in the returned data frame. In the case of `thicken` they will remain on the same position as the input data frame. The added column will have a missing value as well. For `pad` all the rows with missing values will be moved to the end of the dataframe, since there is no natural position for them in the order of padded rows.
+
+* When time variable has NULL as timezone, also `posix_to_date` used to break (related to #14). This made `thicken` break when the desired interval is "day" or higher. This is now fixed by don't regarding the timezone.
+
+* `get_interval` now throws an informative error when the datetime variable has missing values (#33).
+
+* `pad` now throws an informative error when the datetime variable is used in the grouping (#38)
+
+* added "ByteCompile: true" to DESCRIPTION.
+
+## Further Changes
+
+* `pad` no longer throws a message when the interval is specified (#31).
+
+* `span` around hours and minutes now start at the current hour and minute. This to make `span_around` sensible.
+
+##################################################
+
 # padr 0.3.0
 
 ## Changes

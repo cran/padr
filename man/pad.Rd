@@ -2,14 +2,14 @@
 % Please edit documentation in R/pad.R
 \name{pad}
 \alias{pad}
-\title{Pad the datetime column of a data frame.}
+\title{Pad the datetime column of a data frame}
 \usage{
 pad(x, interval = NULL, start_val = NULL, end_val = NULL, by = NULL,
   group = NULL, break_above = 1)
 }
 \arguments{
 \item{x}{A data frame containing at least one variable of class \code{Date},
-class \code{POSIXct} or class \code{POSIXlt}.}
+\code{POSIXct} or \code{POSIXlt}.}
 
 \item{interval}{The interval of the returned datetime variable.
 Any character string that would be accepted by \code{seq.Date()} or
@@ -18,22 +18,22 @@ the interval will be equal to the interval of the datetime variable. When
 specified it can only be lower than the interval and step size of the input data.
 See Details.}
 
-\item{start_val}{An object of class \code{Date}, class \code{POSIXct} or
-class \code{POSIXlt} that specifies the start of the returned datetime variable.
+\item{start_val}{An object of class \code{Date}, \code{POSIXct} or
+\code{POSIXlt} that specifies the start of the returned datetime variable.
 If NULL it will use the lowest value of the input variable.}
 
-\item{end_val}{An object of class \code{Date}, class \code{POSIXct} or
-class \code{POSIXlt} that specifies the end of returned datetime variable.
+\item{end_val}{An object of class \code{Date}, \code{POSIXct} or
+\code{POSIXlt} that specifies the end of returned datetime variable.
 If NULL it will use the highest value of the input variable.}
 
 \item{by}{Only needs to be specified when \code{x} contains multiple
-variables of class \code{Date}, class \code{POSIXct} or
-class \code{POSIXlt}. \code{by} indicates which variable to use for padding.}
+variables of class \code{Date}, \code{POSIXct} or \code{POSIXlt}.
+Indicates which variable to use for padding.}
 
 \item{group}{Optional character vector that specifies the grouping
-variable(s). Padding will take place within the different group values. When
-interval is not specified, it will be determined applying `get_interval` on
-the datetime variable as a whole, ignoring groups (see final example).}
+variable(s). Padding will take place within the different groups. When
+interval is not specified, it will be determined applying \code{get_interval}
+on the datetime variable as a whole, ignoring groups (see last example).}
 
 \item{break_above}{Numeric value that indicates the number of rows in millions
 above which the function will break. Safety net for situations where the
@@ -44,8 +44,8 @@ dataframe, possibly overflowing memory.}
 The data frame \code{x} with the datetime variable padded. All
 non-grouping variables in the data frame will have missing values at the rows
 that are padded. The result will always be sorted on the datetime variable.
-If `group` is not `NULL` result is sorted on keys first, then on datetime
-variable.
+If \code{group} is not \code{NULL} result is sorted on grouping variable(s)
+first, then on the datetime variable.
 }
 \description{
 \code{pad} will fill the gaps in incomplete datetime variables, by figuring out
@@ -59,15 +59,15 @@ observations occur. The eight intervals in \code{padr} are from high to low
 \code{year}, \code{quarter}, \code{month}, \code{week}, \code{day},
 \code{hour}, \code{min}, and \code{sec}. Since \code{padr} v.0.3.0 the
 interval is no longer limited to be of a single unit.
-(Intervals like 5 minutes, 6 hours, 10 days are possible). \code{pad} will figure out
-the interval of the input variable and the step size, and will fill the gaps for the instances that
-would be expected from the interval and step size, but are missing in the input data.
-Note that when `start_val` and/or `end_val` are specified, they are concatenated
-with the datetime variable before the interval is determined.
-See \code{vignette("padr")} for more information on \code{pad}.
-See \code{vignette("padr_implementation")} for detailed information on
-daylight savings time, different timezones, and the implementation of
-\code{thicken}.
+(Intervals like 5 minutes, 6 hours, 10 days are possible). \code{pad} will
+figure out the interval of the input variable and the step size, and will
+fill the gaps for the instances that would be expected from the interval and
+step size, but are missing in the input data.
+Note that when \code{start_val} and/or \code{end_val} are specified, they are
+concatenated with the datetime variable before the interval is determined.
+
+Rows with missing values in the datetime variables will be retained.
+However, they will be moved to the end of the returned data frame.
 }
 \examples{
 simple_df <- data.frame(day = as.Date(c('2016-04-01', '2016-04-03')),

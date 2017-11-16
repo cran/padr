@@ -1,11 +1,101 @@
+#' Span an equally spaced vector around a datetime variable
+#'
+#' Span a vector of specified interval around a variable of class \code{Date},
+#' \code{POSIXct}, or \code{POSIXlt}..
+#' @param x A vector of class \code{Date}, \code{POSIXct}, or \code{POSIXlt}.
+#' @param interval Character, specifying the desired interval.
+#' @param start_shift Character, indicating the time to shift
+#' back from the first observation.
+#' @param end_shift Character, indicating the time to shift
+#' forward from the last observation.
+#' @details Note that use of the \code{start_shift} and \code{end_shift}
+#' arguments change the entire spanning when they are not in line with
+#' the interval. It is not checked for.
+#' @return
+#' A datetime vector, with the first observation smaller or equal than
+#' \code{min(x)} and the last observation larger or equal than \code{max(x)}.
+#' Spaces between points are equal to \code{interval}.
+#' @examples
+#' span_around(coffee$time_stamp, "hour")
+#' span_around(coffee$time_stamp, "hour", end_shift = "2 hour")
+#' span_around(coffee$time_stamp, "2 day")
+#' span_around(coffee$time_stamp, "2 day", start_shift = "2 day")
+#' span_around(emergency$time_stamp, "week")
+#' span_around(emergency$time_stamp, "2 month")
+#' @export
+span_around <- function(x,
+                        interval,
+                        start_shift = NULL,
+                        end_shift   = start_shift) {
+  stopifnot(is_datetime(x))
+  check_start_end_shift(start_shift, end_shift)
+  interval_list          <- convert_interval(interval)
+  interval_list$interval <- uniform_interval_name(interval_list$interval)
+  if (!is.null(start_shift)) x <- shift(x, start_shift, "down")
+  if (!is.null(end_shift))   x <- shift(x, end_shift, "up")
+  span(x, interval_list)
+}
 
+shift <- function(x, offset, down_or_up) {
+  offset_list <- make_interval_list_from_string(offset)
+  offset_list$interval <- uniform_interval_name(offset_list$interval)
+  if (inherits(x, "Date")) {
+    offset_conv <- period_to_time(offset_list)
+  } else {
+    offset_conv <- period_to_time(offset_list, "sec")
+  }
+
+  if (down_or_up == "down") {
+    dt_c(min(x) - offset_conv, x)
+  } else {
+    dt_c(max(x) + offset_conv, x)
+  }
+}
+
+dt_c <- function(a, b) {
+  ret <- c(a, b)
+  attr(ret, "tzone") <- attr(a, "tzone")
+  ret
+}
+
+
+period_to_time <- function(interval_list,
+                           time_period = c("day", "sec")) {
+  time_period <- match.arg(time_period)
+  int_hours   <- convert_int_to_hours(interval_list)
+  if (time_period == "day") {
+    ceiling(int_hours / 24)
+  } else {
+    ceiling(int_hours * 3600)
+  }
+}
+
+check_start_end_shift <- function(start_shift, end_shift) {
+  if (!is.null(start_shift)) {
+    stopifnot(is.character(start_shift))
+  }
+  if (!is.null(end_shift)) {
+    stopifnot(is.character(end_shift))
+  }
+}
+
+# when using interval = hour span's return will always start at midnight. Not
+# in the hour of the first hour. This because we want intuitive results when we
+# we specify multiples of an hour. This does not bother thicken, because
+# everyhting earlier will be abandoned anyway. However, for span_around this
+# is not a clean result, and we want to remove redundant values.
+closest_hour_to_min_x <- function(start_val, min_v, interval){
+  smaller <- seq(start_val, min_v, interval)
+  as.POSIXlt(smaller[length(smaller)])
+}
+
+## this is originally written for thicken, but is now also the body of the
+# exported span_around.
 span <- function(x,
                  interval,
                  start_val  = NULL) {
 
-  if ( !( inherits(x, 'Date') |  inherits(x, 'POSIXt') ) ){
-    break ('x should be of class Date, POSIXlt, or POSIXct', call. = FALSE)
-  }
+  stop_not_datetime(x)
 
   start_and_end <- get_start_and_end(x, return_interval = interval)
 
@@ -22,9 +112,7 @@ span <- function(x,
   }
 
   by_val <- paste(interval$step, interval$interval)
-  return_values <- seq(start_val, end_val, by = by_val)
-
-  return(return_values)
+  seq(start_val, end_val, by = by_val)
 }
 
 shift_end_from_start <- function(start_and_end, start_val){
@@ -72,6 +160,9 @@ get_start_and_end <- function(dt_var,
 
   start_val_func <- sprintf("start_val_%s(min_v)", return_interval$interval)
   start_val <- eval(parse(text = start_val_func))
+  if (return_interval$interval == "hour") {
+    start_val <- closest_hour_to_min_x(start_val, min_v, interval)
+  }
   span <- seq(start_val, max_v, by = interval)
   end_min_1 <- span[length(span)]
   end_val <- as.POSIXlt(seq(end_min_1, length.out = 2, by = interval)[2])
