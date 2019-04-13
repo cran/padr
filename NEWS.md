@@ -1,9 +1,6 @@
-# padr 0.4.1
-## Bug Fixes / Enhancements
+# padr 0.4.1 - 0.4.2
 
-- Patch release requested by CRAN maintainers. Declaring `lintr` as a dependency in tests.
-
-- Error within `padr` for `break_above` error message is corrected. No longer prints the number of millions in millions (HT Sharla Gelfand).
+Patch releases with no impact for the user of the software.
 
 ##################################################
 
