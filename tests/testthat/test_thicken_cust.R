@@ -44,3 +44,27 @@ test_that("thicken_cust works properly", {
   spanned_2 <- spanned_asym[c(2, 2)]
   expect_equal(thicken_cust_2, spanned_2)
 })
+
+context("thicken_cust drop argument")
+test_that("the drop argument gives the desired result", {
+  attr(coffee$time_stamp, "tzone") <- "UTC"
+  hourly <- ymd_h(c("20160707 07",
+                    "20160707 07",
+                    "20160709 11",
+                    "20160710 08"), tz = "UTC")
+  coffee_hour <- coffee %>% mutate(time_stamp_hour = hourly)
+  no_drop <- coffee_hour
+  with_drop <- coffee_hour %>% select(-time_stamp)
+
+  expect_equal(sw(thicken_cust(coffee,
+                               spanned = hourly,
+                               colname = "time_stamp_hour")), no_drop)
+  expect_equal(sw(thicken_cust(coffee,
+                               spanned = hourly,
+                               colname = "time_stamp_hour",
+                               drop = FALSE)), no_drop)
+  expect_equal(sw(thicken_cust(coffee,
+                               spanned = hourly,
+                               colname = "time_stamp_hour",
+                               drop = TRUE)), with_drop)
+})

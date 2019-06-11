@@ -12,14 +12,14 @@
 
 <meta name="author" content="Edwn Thoen" />
 
-<meta name="date" content="2019-04-13" />
+<meta name="date" content="2019-06-11" />
 
 <title>Custom thickening and padding</title>
 
 
 
 <style type="text/css">code{white-space: pre;}</style>
-<style type="text/css">
+<style type="text/css" data-origin="pandoc">
 a.sourceLine { display: inline-block; line-height: 1.25; }
 a.sourceLine { pointer-events: none; color: inherit; text-decoration: inherit; }
 a.sourceLine:empty { height: 1.2em; }
@@ -81,7 +81,29 @@ code span.st { color: #4070a0; } /* String */
 code span.va { color: #19177c; } /* Variable */
 code span.vs { color: #4070a0; } /* VerbatimString */
 code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+
 </style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    for (var j = 0; j < rules.length; j++) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") continue;
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' || rule.style.backgroundColor === '') continue;
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
 
 
 
@@ -269,6 +291,9 @@ code > span.al { color: #ff0000; font-weight: bold; }
 code > span.fu { color: #900; font-weight: bold; }  code > span.er { color: #a61717; background-color: #e3d2d2; } 
 </style>
 
+
+
+
 </head>
 
 <body>
@@ -277,8 +302,8 @@ code > span.fu { color: #900; font-weight: bold; }  code > span.er { color: #a61
 
 
 <h1 class="title toc-ignore">Custom thickening and padding</h1>
-<h4 class="author"><em>Edwn Thoen</em></h4>
-<h4 class="date"><em>2019-04-13</em></h4>
+<h4 class="author">Edwn Thoen</h4>
+<h4 class="date">2019-06-11</h4>
 
 
 
@@ -319,7 +344,7 @@ code > span.fu { color: #900; font-weight: bold; }  code > span.er { color: #a61
 </div>
 <div id="thickening-and-padding" class="section level2">
 <h2>Thickening and padding</h2>
-<p>The <code>thicken_cust</code> and <code>pad_cust</code> functions both take the spanned object as an argument. <code>thicken_cust</code> will assign each observation to the closest value in the spanned object. Note that <code>thicken_cust</code> only does round down, whereas in the regular <code>thicken</code> there is also the option to round up. This seems the mostly choses option in the regular <code>thicken</code>, the argument was omitted from <code>thicken_cust</code> for simplicity. <code>pad_cust</code> also needs the spanned object, because it can no longer infer which observations are lacking from the datetime variable. By default, <code>pad_cust</code> drops the last value in the spanned object. If the original spanning was around the datetime variable, leaving the last value in would create an empty record after all the observations.</p>
+<p>The <code>thicken_cust</code> and <code>pad_cust</code> functions both take the spanned object as an argument. <code>thicken_cust</code> will assign each observation to the closest value in the spanned object. Note that <code>thicken_cust</code> only does round down, whereas in the regular <code>thicken</code> there is also the option to round up. This seems the mostly chooses option in the regular <code>thicken</code>, the argument was omitted from <code>thicken_cust</code> for simplicity. <code>pad_cust</code> also needs the spanned object, because it can no longer infer which observations are lacking from the datetime variable. By default, <code>pad_cust</code> drops the last value in the spanned object. If the original spanning was around the datetime variable, leaving the last value in would create an empty record after all the observations.</p>
 <div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb3-1" data-line-number="1">veh_acc_cust &lt;-<span class="st"> </span>veh_acc <span class="op">%&gt;%</span><span class="st"> </span></a>
 <a class="sourceLine" id="cb3-2" data-line-number="2"><span class="st">  </span><span class="kw">thicken_cust</span>(<span class="dt">spanned =</span> veh_acc_span, <span class="dt">colname =</span> <span class="st">&quot;day_hour&quot;</span>) <span class="op">%&gt;%</span><span class="st"> </span></a>
 <a class="sourceLine" id="cb3-3" data-line-number="3"><span class="st">  </span><span class="kw">count</span>(day_hour) <span class="op">%&gt;%</span><span class="st"> </span></a>
