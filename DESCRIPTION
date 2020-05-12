@@ -1,7 +1,7 @@
 Package: padr
 Type: Package
 Title: Quickly Get Datetime Data Ready for Analysis
-Version: 0.5.1
+Version: 0.5.2
 Author: Edwin Thoen
 Maintainer: Edwin Thoen <edwinthoen@gmail.com>
 Description: Transforms datetime data into a format ready for analysis.
@@ -21,6 +21,6 @@ URL: https://github.com/EdwinTh/padr
 BugReports: https://github.com/EdwinTh/padr/issues
 ByteCompile: true
 NeedsCompilation: yes
-Packaged: 2020-04-03 09:19:30 UTC; edwinthoen
+Packaged: 2020-05-12 07:58:39 UTC; edwinthoen
 Repository: CRAN
-Date/Publication: 2020-04-03 09:50:02 UTC
+Date/Publication: 2020-05-12 08:20:03 UTC

@@ -1,4 +1,4 @@
-## ---- fig.width = 7, message=FALSE, warning=FALSE------------------------
+## ---- fig.width = 7, message=FALSE, warning=FALSE-----------------------------
 library(padr); library(dplyr); library(ggplot2)
 veh_acc <- emergency %>% 
   filter(title == "Traffic: VEHICLE ACCIDENT -",
@@ -22,17 +22,17 @@ veh_acc %>%
   pad() %>% 
   veh_acc_line_plot()
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 veh_acc_span <- 
   span_around(veh_acc$time_stamp, interval = "hour", start_shift = "7 hour") %>% 
   subset_span(list(hour = c(7, 10, 16, 19)))
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 veh_acc_cust <- veh_acc %>% 
   thicken_cust(spanned = veh_acc_span, colname = "day_hour") %>% 
   count(day_hour) %>% 
   pad_cust(veh_acc_span)
 
-## ---- fig.width=7--------------------------------------------------------
+## ---- fig.width=7-------------------------------------------------------------
 veh_acc_line_plot(veh_acc_cust, units_to_last = 12 * 3600)
 
