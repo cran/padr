@@ -48,10 +48,10 @@ test_that("thicken only accepts data frames", {
   expect_error(suppressWarnings(thicken(df_with_one_date, interval = "quarter")), NA)
 })
 
-test_that("thicken throws error when asked interval is lower", {
-  expect_error( thicken(x_month, interval = "month"))
-  expect_error( thicken(x_month, interval = "day"))
-  expect_error( thicken(x_month, interval = "year"), NA)
+test_that("thicken throws warning when asked interval is lower", {
+  expect_warning(thicken(x_month, interval = "month"))
+  expect_warning(thicken(x_month, interval = "day"))
+  expect_error(thicken(x_month, interval = "year"), NA)
 })
 
 test_that("thicken gives informed error when start_val is wrong class", {
@@ -169,16 +169,22 @@ test_that("add_na_to_thicken unit tests", {
 
 context("thicken drop argument")
 test_that("the drop argument gives the desired result", {
-  hourly <- ymd_h(c("20160707 09",
-                    "20160707 09",
-                    "20160709 13",
-                    "20160710 10"), tz = "CET")
-  coffee_hour <- coffee %>% mutate(time_stamp_hour = hourly)
-  no_drop <- coffee_hour
-  with_drop <- coffee_hour %>% select(-time_stamp)
-  expect_equal(thicken(coffee, "hour"), no_drop)
-  expect_equal(thicken(coffee, "hour", drop = FALSE), no_drop)
-  expect_equal(thicken(coffee, "hour", drop = TRUE), with_drop)
+  day <- as.Date(c("2016-07-07", "2016-07-07", "2016-07-09", "2016-07-10"))
+  coffee_day <- coffee %>% mutate(time_stamp_day = day)
+  no_drop <- coffee_day
+  with_drop <- coffee_day %>% select(-time_stamp)
+  expect_equal(thicken(coffee, "day"), no_drop)
+  expect_equal(thicken(coffee, "day", drop = FALSE), no_drop)
+  expect_equal(thicken(coffee, "day", drop = TRUE), with_drop)
+})
+
+test_that("thicken will return a data frame when drop = TRUE", {
+  x <- as.data.frame(coffee[ ,1])
+  x_ret <- data.frame(time_stamp_hour = ymd_hms(c("2016-07-07 09:00:00",
+                                                  "2016-07-07 09:00:00",
+                                                  "2016-07-09 13:00:00",
+                                                  "2016-07-10 10:00:00")))
+  expect_s3_class(thicken(x, interval = "hour", drop = TRUE), "data.frame")
 })
 
 context("ties_to_earlier argument to thicken")
@@ -205,3 +211,11 @@ test_that("ties_to_earlier works with rounding up ties on edges", {
                ymd_h("20171021 17", "20171021 17"))
 })
 
+
+context("informative error for Year 2038 problem")
+x <- data.frame(dt = ymd_h("20381201 01", "20381202 01"))
+expect_error(thicken(x, "hour"),
+             "thicken does not work on POSIX data after 2038, due to Year 2038 problem. https://en.wikipedia.org/wiki/Year_2038_problem")
+
+y <- data.frame(d = as.Date(c("2038-12-10", "2038-12-13")))
+expect_error(thicken(y, interval = "1 month"), NA)

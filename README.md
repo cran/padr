@@ -1,14 +1,24 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
-padr
-====
 
-[![Build Status](https://travis-ci.org/EdwinTh/padr.png?branch=master)](https://travis-ci.org/EdwinTh/padr) [![codecov.io](https://codecov.io/github/EdwinTh/padr/coverage.svg?branch=master)](https://codecov.io/github/EdwinTh/padr?branch=master) [![CRAN\_Status\_Badge](http://www.r-pkg.org/badges/version/padr)](https://cran.r-project.org/package=padr) [![](http://cranlogs.r-pkg.org/badges/padr)](https://cran.r-project.org/package=padr)
+# padr
 
-`padr` is an R package that assists with preparing time series data. It provides two main functions that will quickly get the data in the format you want. When data is observed on too low a level, `thicken` will add a column of a higher interval to the data frame, after which the user can apply the appropriate aggregation. When there are missing records for time points where observations were absent, `pad` will automatically insert these records. A number of `fill_` functions help to subsequently fill the missing values.
+[![Build
+Status](https://travis-ci.org/EdwinTh/padr.png?branch=master)](https://travis-ci.org/EdwinTh/padr)
+[![codecov.io](https://codecov.io/github/EdwinTh/padr/coverage.svg?branch=master)](https://codecov.io/github/EdwinTh/padr?branch=master)
+[![CRAN\_Status\_Badge](http://www.r-pkg.org/badges/version/padr)](https://cran.r-project.org/package=padr)
+[![](http://cranlogs.r-pkg.org/badges/padr)](https://cran.r-project.org/package=padr)
 
-Usage
-=====
+`padr` is an R package that assists with preparing time series data. It
+provides two main functions that will quickly get the data in the format
+you want. When data is observed on too low a level, `thicken` will add a
+column of a higher interval to the data frame, after which the user can
+apply the appropriate aggregation. When there are missing records for
+time points where observations were absent, `pad` will automatically
+insert these records. A number of `fill_` functions help to subsequently
+fill the missing values.
+
+# Usage
 
 ``` r
 library(padr)
@@ -31,15 +41,19 @@ coffee %>%
   fill_by_value(day_amount, value = 0)
 ```
 
-    ## # A tibble: 4 × 2
+    ## # A tibble: 4 x 2
     ##   time_stamp_day day_amount
-    ##           <date>      <dbl>
-    ## 1     2016-07-07       6.12
-    ## 2     2016-07-08       0.00
-    ## 3     2016-07-09       4.11
-    ## 4     2016-07-10       3.14
+    ##   <date>              <dbl>
+    ## 1 2016-07-07           6.12
+    ## 2 2016-07-08           0   
+    ## 3 2016-07-09           4.11
+    ## 4 2016-07-10           3.14
 
-More information
-================
+# More information
 
-See the the general [introduction Vignette](https://github.com/EdwinTh/padr/blob/master/vignettes/padr.Rmd) for more examples. The [implementation details Vignette](https://github.com/EdwinTh/padr/blob/master/vignettes/padr_implementation.Rmd) describes how `padr` handles different time zones and daylight savings time.
+See the the general [introduction
+Vignette](https://CRAN.R-project.org/package=padr/vignettes/padr.html)
+for more examples. The [implementation details
+Vignette](https://CRAN.R-project.org/package=padr/vignettes/padr_implementation.html)
+describes how `padr` handles different time zones and daylight savings
+time.

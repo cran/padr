@@ -23,16 +23,17 @@ test_that("end_val_before_max_dt works in this context", {
 
 context("thicken_cust integration tests")
 
-spanned_asym <- ymd_h(c("2016-07-07 09", "2016-07-09 12", "2016-07-11 00"),
-                      tz = "")
+spanned_asym <- ymd_h(c("2016-07-07 08", "2016-07-09 11", "2016-07-10 23"),
+                      tz = "UTC")
 sw <- suppressWarnings
 
 test_that("thicken_cust works properly", {
   # Manually setting the ts var in coffee, so test passes on systems with
   # a different time zone
+
   coffee$time_stamp <- as.POSIXct(c(
     "2016-07-07 09:11:21", "2016-07-07 09:46:48", "2016-07-09 13:25:17", "2016-07-10 10:45:11"
-  ))
+  ), tz = 'UTC')
   thicken_cust_1 <- thicken_cust(coffee, spanned_asym, "jos")$jos
   spanned_1 <- spanned_asym[c(1, 1, 2, 2)]
   expect_equal(thicken_cust_1, spanned_1)
@@ -68,3 +69,10 @@ test_that("the drop argument gives the desired result", {
                                colname = "time_stamp_hour",
                                drop = TRUE)), with_drop)
 })
+
+
+context("informative error for Year 2038 problem - thicken_cust")
+x <- data.frame(dt = ymd_h("20381201 01", "20381202 01"))
+sp <- as.Date(c("2038-12-01", "2038-12-02", "2038-12-04"))
+expect_error(thicken_cust(x, sp, "day"),
+             "thicken_cust does not work on POSIX data after 2038, due to Year 2038 problem. https://en.wikipedia.org/wiki/Year_2038_problem")

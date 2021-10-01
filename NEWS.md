@@ -1,10 +1,30 @@
+# padr 0.6.0
+
+* A number of unit tests are updated, such that daylight saving time errors cannot creep in when they are ran on a system with a different time zone than UTC or CET. Error pointed out to prof. Ripley of the CRAN team.
+
+* When the specified interval is equal or lower than the interval of the datetime variable, `thicken` will no longer throw an error, but a warning. Request by Matus Goljer, issue #84.
+
+* Bug fix, `pad` did not work when `dplyr::group_by` had irregular column names (using back ticks). Bug spotted by Jason Hunter in issue #69.
+
+* Bug fix, `thicken` used to return a vector instead of a data.frame when the drop argument was TRUE and the only column in the data.frame was the datetime variable. It will now return a data frame instead. issue #76.
+
+* Informative error thrown for Year 2038 problem when date time variable is POSIXt and the year is 2038 or greater. Problem detected by github users darneiri and Blundys. issue #51
+
+* The `pad` function used to break when the dt_var was of class POSIXt and the interval was week or day, when the period crosses a switch from or to daylight savings time. This is fixed. Also, an explicit warning is thrown when it is attempted to use "DSTday" as interval, which does not work. Bugs spotted by Tyler Grant Smith. issue #78
+
+* The `pad` function used to call the deprecated .dots argument in `dplyr::groups`, which threw a warning when `pad` was applied on a grouped tibble. This is updated. Thanks to Matt Cowgill and Kristian Gjerde for spotting this. issue #80
+
+# padr 0.5.3
+
+Patch release, adjusting the unit tests to play with R.4.* new time zone implementations.
+
 # padr 0.5.2
 
 Updated `padr` to make sure it will work with the upcoming v1.0.0 release of `dplyr`.
 
 # padr 0.5.1
 
-Patch release requested by CRAN maintainers, so package is up-to-date with lates version of `tibble`.
+Patch release requested by CRAN maintainers, so package is up-to-date with latest version of `tibble`.
 
 # padr 0.5.0
 
@@ -19,8 +39,6 @@ Patch release requested by CRAN maintainers, so package is up-to-date with lates
 * `thicken` has gained a `drop` argument. Logical with `FALSE` as default value. If `TRUE` the thickened datetime value is dropped from the data frame. Idea by Adam Stone.
 
 ## Minor changes
-
-* `thicken` converts datetime values to integers to match values to the higher interval. Because of this the function suffers from the YEAR2038 problem, meaning that it will not give output if a POSIXct is higher than 2038-01-19 03:14:07 because of integer overflow. The problem needs to be addressed in the future, for now a meaningful error is raised when a POSIXt with year 2038 or higher is fed to `thicken`. Problem detected by github users darneiri and Blundys.
 
 * An informative error is now thrown in `pad`, `pad_cust`, `thicken`, `thicken_cust` when a data frame does not have any rows. Requested by Julian During.
 

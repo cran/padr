@@ -2,9 +2,7 @@
 #'
 #' Take the datetime variable in a data frame and map this
 #' to a variable of a higher interval. The mapping is added to the data frame
-#' in a new variable. After applying \code{thicken} the user can aggregate the
-#' other variables in the data frame to the higher interval, for instance using
-#' \code{dplyr}.
+#' in a new variable.
 #'
 #' @param x A data frame containing at least one datetime variable of
 #' class \code{Date}, \code{POSIXct} or \code{POSIXlt}.
@@ -94,6 +92,8 @@ thicken <- function(x,
   dt_var      <- dt_var_info$dt_var
   dt_var_name <- dt_var_info$dt_var_name
 
+  error_on_year_2038(dt_var, "thicken")
+
   check_start_and_end(start_val, NULL)
 
   interval_converted <- convert_interval(interval)
@@ -124,8 +124,7 @@ thicken <- function(x,
   thickened <- round_thicken(dt_var, spanned, rounding, ties_to_earlier)
 
   if (all(all.equal(thickened, dt_var) == TRUE)) {
-    stop("The thickened result is equal to the original datetime variable,
-the interval specified is too low for the interval of the datetime variable", call. = FALSE)
+    warning("The thickened result is equal to the original datetime variable", call. = FALSE)
   }
 
   thickened_with_na <- add_na_to_thicken(thickened, na_ind)
@@ -145,7 +144,8 @@ set_to_original_type <- function(x,
   if (inherits(original, "tbl_df")) {
     x <- dplyr::as_tibble(x)
     grps <- as.character(dplyr::groups(original))
-    x <- dplyr::group_by(x, .dots = grps)
+    grps <- gsub("`", "", grps)
+    x <- dplyr::group_by(x, dplyr::across(grps))
   } else if (inherits(original, "data.table")) {
     x <- data.table::as.data.table(x)
   }
@@ -223,7 +223,7 @@ start_val_after_min_dt <- function(start_val, dt_var) {
   } else {
     start_val <- to_posix(start_val, dt_var)$a
     dt_var    <- to_posix(start_val, dt_var)$b
-    ind <- dt_var > start_val
+    ind <- dt_var >= start_val
     return(ind)
   }
 }
@@ -251,5 +251,5 @@ add_na_to_thicken <- function(thickened, na_ind) {
 }
 
 remove_original_var <- function(x, var_name) {
-  x[, colnames(x) != var_name]
+  x[, colnames(x) != var_name, drop = FALSE]
 }
