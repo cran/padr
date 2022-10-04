@@ -6,8 +6,8 @@
 [![Build
 Status](https://travis-ci.org/EdwinTh/padr.png?branch=master)](https://travis-ci.org/EdwinTh/padr)
 [![codecov.io](https://codecov.io/github/EdwinTh/padr/coverage.svg?branch=master)](https://codecov.io/github/EdwinTh/padr?branch=master)
-[![CRAN\_Status\_Badge](http://www.r-pkg.org/badges/version/padr)](https://cran.r-project.org/package=padr)
-[![](http://cranlogs.r-pkg.org/badges/padr)](https://cran.r-project.org/package=padr)
+[![CRAN_Status_Badge](http://www.r-pkg.org/badges/version/padr)](https://CRAN.R-project.org/package=padr)
+\[![](http://cranlogs.r-pkg.org/badges/padr)\]
 
 `padr` is an R package that assists with preparing time series data. It
 provides two main functions that will quickly get the data in the format
@@ -41,7 +41,7 @@ coffee %>%
   fill_by_value(day_amount, value = 0)
 ```
 
-    ## # A tibble: 4 x 2
+    ## # A tibble: 4 × 2
     ##   time_stamp_day day_amount
     ##   <date>              <dbl>
     ## 1 2016-07-07           6.12

@@ -1,6 +1,8 @@
-# padr 0.6.0
+# padr 0.6.1
 
-* A number of unit tests are updated, such that daylight saving time errors cannot creep in when they are ran on a system with a different time zone than UTC or CET. Error pointed out to prof. Ripley of the CRAN team.
+* Patch release as requested and proposed by Martin Maechler to keep `padr` working with the upcoming R release. Appeasing an issue with `as.character.POSIXlt`.
+
+# padr 0.6.0
 
 * When the specified interval is equal or lower than the interval of the datetime variable, `thicken` will no longer throw an error, but a warning. Request by Matus Goljer, issue #84.
 
@@ -8,9 +10,9 @@
 
 * Bug fix, `thicken` used to return a vector instead of a data.frame when the drop argument was TRUE and the only column in the data.frame was the datetime variable. It will now return a data frame instead. issue #76.
 
-* Informative error thrown for Year 2038 problem when date time variable is POSIXt and the year is 2038 or greater. Problem detected by github users darneiri and Blundys. issue #51
+* Informative error thrown for Year 2038 problem when date time variable is POSIXt and the year is 2038 or greater. Problem detected by github users darneiri and Blundys.  issue #51
 
-* The `pad` function used to break when the dt_var was of class POSIXt and the interval was week or day, when the period crosses a switch from or to daylight savings time. This is fixed. Also, an explicit warning is thrown when it is attempted to use "DSTday" as interval, which does not work. Bugs spotted by Tyler Grant Smith. issue #78
+* The `pad` function used to break when the dt_var was of calss POSIXt and the interval was week or day, when the period crosses a switch from or to daylight savings time. This is fixed. Also, an explicit warning is thrown when it is attempted to use "DSTday" as interval, which does not work. Bugs spotted by Tyler Grant Smith. issue #78
 
 * The `pad` function used to call the deprecated .dots argument in `dplyr::groups`, which threw a warning when `pad` was applied on a grouped tibble. This is updated. Thanks to Matt Cowgill and Kristian Gjerde for spotting this. issue #80
 
@@ -156,7 +158,7 @@ They used to require specification of all the column names that had to filled. T
 
 ## New features
 
-# pad_int
+* pad_int
 
 The new function pad_int does padding of an integer field. Its working is very similar to the general pad. The by argument must always be specified, since a data.frame would almost alway contain multiple numeric columns. Instead of the interval, one can specify the step size by which the integer increases.
 
